@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TextMatcher Test</title>
+  <style>
+    body { font-family: system-ui; padding: 20px; max-width: 800px; margin: 0 auto; }
+    textarea { width: 100%; height: 150px; margin-bottom: 10px; }
+    input { width: 300px; padding: 8px; margin-right: 10px; }
+    button { padding: 8px 16px; }
+    .result { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .match { color: green; font-weight: bold; }
+    .no-match { color: #888; }
+    .highlight { background: yellow; padding: 2px 4px; }
+    #script-display { white-space: pre-wrap; line-height: 1.8; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>TextMatcher Test</h1>
+
+  <h3>1. Enter Script</h3>
+  <textarea id="script-input" placeholder="Paste your script here...">Welcome to our presentation today. We will discuss the importance of voice recognition technology and how it can transform the way we interact with applications.</textarea>
+  <button id="load-script">Load Script</button>
+
+  <h3>2. Simulate Spoken Words</h3>
+  <input type="text" id="spoken-input" placeholder="Type words as if speaking...">
+  <button id="process-word">Process</button>
+  <button id="reset">Reset</button>
+
+  <div class="result">
+    <h4>State</h4>
+    <div id="state-display">No script loaded</div>
+  </div>
+
+  <h3>3. Script with Position</h3>
+  <div id="script-display"></div>
+
+  <script type="module">
+    import { TextMatcher } from './matching/TextMatcher.js';
+
+    let matcher = null;
+
+    const scriptInput = document.getElementById('script-input');
+    const spokenInput = document.getElementById('spoken-input');
+    const stateDisplay = document.getElementById('state-display');
+    const scriptDisplay = document.getElementById('script-display');
+
+    function updateDisplay() {
+      if (!matcher) {
+        stateDisplay.textContent = 'No script loaded';
+        return;
+      }
+
+      const state = matcher.getState();
+      stateDisplay.innerHTML = `
+        <strong>Position:</strong> ${state.currentPosition} / ${state.scriptLength}<br>
+        <strong>Buffer:</strong> [${state.buffer.join(', ')}]<br>
+        <strong>Progress:</strong> ${Math.round(state.currentPosition / state.scriptLength * 100)}%
+      `;
+
+      // Highlight current position in script
+      const words = scriptInput.value.split(/\s+/);
+      const highlighted = words.map((word, i) => {
+        if (i === state.currentPosition) {
+          return `<span class="highlight">${word}</span>`;
+        }
+        if (i < state.currentPosition) {
+          return `<span style="opacity: 0.5">${word}</span>`;
+        }
+        return word;
+      }).join(' ');
+
+      scriptDisplay.innerHTML = highlighted;
+    }
+
+    document.getElementById('load-script').addEventListener('click', () => {
+      const script = scriptInput.value;
+      matcher = new TextMatcher(script);
+      updateDisplay();
+      console.log('Script loaded with', matcher.scriptWords.length, 'words');
+    });
+
+    document.getElementById('process-word').addEventListener('click', () => {
+      if (!matcher) {
+        alert('Load script first!');
+        return;
+      }
+
+      const words = spokenInput.value;
+      const match = matcher.processTranscript(words);
+
+      if (match !== null) {
+        console.log('Match found at position:', match);
+      } else {
+        console.log('No match yet');
+      }
+
+      updateDisplay();
+      spokenInput.value = '';
+      spokenInput.focus();
+    });
+
+    document.getElementById('reset').addEventListener('click', () => {
+      if (matcher) {
+        matcher.reset();
+        updateDisplay();
+      }
+    });
+
+    // Allow Enter key to process
+    spokenInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('process-word').click();
+      }
+    });
+  </script>
+</body>
+</html>
