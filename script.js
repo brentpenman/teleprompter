@@ -57,7 +57,20 @@ function scrollLoop(timestamp) {
   const deltaTime = timestamp - lastTimestamp;
   const pixelsToScroll = (state.scrollSpeed * deltaTime) / 1000;
 
-  teleprompterContainer.scrollTop += pixelsToScroll;
+  const newScrollTop = teleprompterContainer.scrollTop + pixelsToScroll;
+  const maxScroll = teleprompterContainer.scrollHeight - teleprompterContainer.clientHeight;
+
+  // Ensure scrollTop doesn't go negative or past the end
+  if (newScrollTop < 0) {
+    teleprompterContainer.scrollTop = 0;
+  } else if (newScrollTop >= maxScroll) {
+    // Reached the end, stop scrolling
+    teleprompterContainer.scrollTop = maxScroll;
+    stopScrolling();
+    return;
+  } else {
+    teleprompterContainer.scrollTop = newScrollTop;
+  }
 
   lastTimestamp = timestamp;
 
@@ -334,3 +347,47 @@ document.addEventListener('mousemove', () => {
 });
 
 document.addEventListener('touchstart', showControls);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (state.mode !== 'teleprompter') return;
+
+  switch (e.code) {
+    case 'Space':
+      e.preventDefault(); // Prevent page scroll
+      toggleScrolling();
+      showControls();
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      increaseSpeed();
+      showControls();
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      decreaseSpeed();
+      showControls();
+      break;
+    case 'Equal': // + key
+    case 'NumpadAdd':
+      increaseFontSize();
+      showControls();
+      break;
+    case 'Minus':
+    case 'NumpadSubtract':
+      decreaseFontSize();
+      showControls();
+      break;
+    case 'KeyF':
+      toggleFullscreen();
+      showControls();
+      break;
+    case 'Escape':
+      // If not in fullscreen, exit to editor
+      if (!document.fullscreenElement) {
+        switchMode('editor');
+      }
+      // If in fullscreen, browser handles exit
+      break;
+  }
+});
