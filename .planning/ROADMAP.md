@@ -45,10 +45,12 @@ Plans:
   2. User can see visual indicator showing when app is actively listening
   3. App continues listening through pauses without manual restart
   4. When speech recognition fails, app shows clear error and falls back to manual mode
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD (to be created during `/gsd:plan-phase 2`)
+- [ ] 02-01-PLAN.md — Speech recognition module with auto-restart and error handling
+- [ ] 02-02-PLAN.md — Audio visualizer and UI elements (voice toggle, waveform indicator)
+- [ ] 02-03-PLAN.md — Integration, persistence, and human verification
 
 ### Phase 3: Basic Text Matching
 **Goal**: App matches spoken words to position in script and scrolls accordingly
@@ -86,6 +88,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Display & Manual Control | 3/3 | Complete | 2026-01-22 |
-| 2. Speech Recognition Foundation | 0/TBD | Not started | - |
+| 2. Speech Recognition Foundation | 0/3 | Not started | - |
 | 3. Basic Text Matching | 0/TBD | Not started | - |
 | 4. Intelligent Scroll Control | 0/TBD | Not started | - |
