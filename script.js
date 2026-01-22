@@ -339,7 +339,8 @@ function toggleVoiceMode() {
 function saveSettings() {
   const settings = {
     scrollSpeed: state.scrollSpeed,
-    fontSize: state.fontSize
+    fontSize: state.fontSize,
+    voiceEnabled: state.voiceEnabled
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
@@ -351,10 +352,25 @@ function loadSettings() {
       const settings = JSON.parse(saved);
       state.scrollSpeed = settings.scrollSpeed ?? 50;
       state.fontSize = settings.fontSize ?? 48;
+      // Note: voiceEnabled is NOT restored to state here
+      // It's restored when entering teleprompter mode via switchMode
     }
   } catch (e) {
     console.error('Failed to load settings:', e);
   }
+}
+
+function getSavedVoicePreference() {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) {
+      const settings = JSON.parse(saved);
+      return settings.voiceEnabled ?? false;
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return false;
 }
 
 // Mode switching function
@@ -381,10 +397,21 @@ function switchMode(newMode) {
 
     // Show controls briefly
     showControls();
+
+    // Restore voice mode if previously enabled and browser supports it
+    if (getSavedVoicePreference() && SpeechRecognizer.isSupported() && !state.voiceEnabled) {
+      // Small delay to let UI settle before requesting mic permission
+      setTimeout(() => enableVoiceMode(), 100);
+    }
   } else if (newMode === 'editor') {
     // Stop scrolling if active
     if (state.isScrolling) {
       stopScrolling();
+    }
+
+    // Stop voice mode when exiting teleprompter
+    if (state.voiceEnabled) {
+      disableVoiceMode();
     }
 
     // Switch views
@@ -404,7 +431,7 @@ subscribe((property, value) => {
   }
 
   // Auto-save settings
-  if (['scrollSpeed', 'fontSize'].includes(property)) {
+  if (['scrollSpeed', 'fontSize', 'voiceEnabled'].includes(property)) {
     saveSettings();
   }
 });
