@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 1 of 4 (Core Display & Manual Control)
-Plan: 1 of TBD in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-22 — Completed 01-01-PLAN.md
+Last activity: 2026-01-22 — Completed 01-02-PLAN.md
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 1 minute
-- Total execution time: 0.0 hours
+- Total plans completed: 2
+- Average duration: 1.5 minutes
+- Total execution time: 0.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 1 | 1m | 1m |
+| 01 | 2 | 3m | 1.5m |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1m)
-- Trend: Just started
+- Last 5 plans: 01-01 (1m), 01-02 (2m)
+- Trend: Consistent velocity
 
 *Updated after each plan completion*
 
@@ -50,6 +50,10 @@ Recent decisions affecting current work:
 - System font stack instead of custom fonts (01-01, zero latency)
 - Left-aligned text not centered (01-01, broadcast standard)
 - Reading marker at 33.33% top third (01-01, comfortable eye position)
+- Speed range 10-200 pixels/second (01-02, balances precision and speed)
+- Font size range 24-96px (01-02, readable on all screens)
+- Auto-hide controls after 3 seconds (01-02, distraction-free reading)
+- Keyboard shortcuts follow conventions (01-02, Space/F/Escape/arrows)
 
 ### Pending Todos
 
@@ -61,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22
-Stopped at: Completed 01-01-PLAN.md (Foundation: HTML, CSS, mode switching)
+Last session: 2026-01-22T21:05:47Z
+Stopped at: Completed 01-02-PLAN.md (Controls: scrolling, play/pause, speed, size, fullscreen, keyboard shortcuts, persistence)
 Resume file: None
