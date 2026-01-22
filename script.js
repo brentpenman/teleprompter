@@ -212,6 +212,129 @@ function showControls() {
   }, 3000);
 }
 
+// Voice mode controls
+async function enableVoiceMode() {
+  // Request microphone permission
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+  } catch (err) {
+    handleMicrophoneError(err);
+    return;
+  }
+
+  // Initialize visualizer with the stream
+  if (!audioVisualizer) {
+    audioVisualizer = new AudioVisualizer(waveformCanvas);
+  }
+  audioVisualizer.start(audioStream);
+
+  // Initialize and start speech recognizer
+  if (!speechRecognizer) {
+    speechRecognizer = new SpeechRecognizer({
+      onTranscript: (text, isFinal) => {
+        // For Phase 2, just log transcripts (Phase 3 will use them for matching)
+        console.log(`[Voice] ${isFinal ? 'FINAL' : 'interim'}: ${text}`);
+      },
+      onError: (errorType, isFatal) => {
+        console.error(`[Voice] Error: ${errorType} (fatal: ${isFatal})`);
+        if (isFatal) {
+          disableVoiceMode();
+          showVoiceError(`Voice recognition error: ${errorType}`);
+        }
+      },
+      onStateChange: (newState) => {
+        state.voiceState = newState;
+        updateVoiceIndicator();
+      }
+    });
+  }
+
+  speechRecognizer.start();
+
+  // Update UI
+  state.voiceEnabled = true;
+  voiceToggle.classList.add('active');
+  listeningIndicator.classList.remove('hidden');
+}
+
+function disableVoiceMode() {
+  // Stop speech recognition
+  if (speechRecognizer) {
+    speechRecognizer.stop();
+  }
+
+  // Stop visualizer (this also stops the audio stream)
+  if (audioVisualizer) {
+    audioVisualizer.stop();
+  }
+
+  // Clear references
+  audioStream = null;
+
+  // Update UI
+  state.voiceEnabled = false;
+  state.voiceState = 'idle';
+  voiceToggle.classList.remove('active');
+  listeningIndicator.classList.add('hidden');
+}
+
+function handleMicrophoneError(err) {
+  let message = 'Unable to access microphone.';
+
+  switch (err.name) {
+    case 'NotAllowedError':
+      message = 'Microphone permission denied. Voice mode requires microphone access.';
+      voiceToggle.disabled = true;
+      voiceToggle.title = message;
+      break;
+    case 'NotFoundError':
+      message = 'No microphone detected.';
+      break;
+    case 'NotReadableError':
+      message = 'Microphone is in use by another application.';
+      break;
+  }
+
+  console.error('[Voice] Microphone error:', err.name, message);
+  showVoiceError(message);
+}
+
+function showVoiceError(message) {
+  // Brief error display using alert as simple fallback
+  alert(message);
+}
+
+function updateVoiceIndicator() {
+  if (!audioVisualizer) return;
+
+  switch (state.voiceState) {
+    case 'listening':
+      audioVisualizer.setErrorState(false);  // Green bars
+      break;
+    case 'retrying':
+    case 'error':
+      audioVisualizer.setErrorState(true);   // Amber bars
+      break;
+    case 'idle':
+      // No change needed, indicator hidden when idle
+      break;
+  }
+}
+
+function toggleVoiceMode() {
+  if (state.voiceEnabled) {
+    disableVoiceMode();
+  } else {
+    enableVoiceMode();
+  }
+}
+
 // Settings persistence
 function saveSettings() {
   const settings = {
@@ -340,6 +463,9 @@ document.addEventListener('DOMContentLoaded', () => {
   sizeDownBtn.addEventListener('click', decreaseFontSize);
 
   fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  // Voice toggle
+  voiceToggle.addEventListener('click', toggleVoiceMode);
 });
 
 // Fullscreen change listener
