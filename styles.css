@@ -129,10 +129,6 @@ body {
     transition: opacity 0.3s;
     pointer-events: none;
     z-index: 20;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1rem;
 }
 
 .controls-overlay.visible {
@@ -140,23 +136,64 @@ body {
     pointer-events: auto;
 }
 
-/* Control buttons (structure for Plan 02) */
-.controls-overlay button {
-    padding: 0.75rem 1.5rem;
+.controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 2rem;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.control-btn {
+    padding: 0.5rem 1rem;
     font-size: 1rem;
     font-weight: 600;
     color: #fff;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s;
+    white-space: nowrap;
 }
 
-.controls-overlay button:hover {
-    background-color: rgba(255, 255, 255, 0.25);
+.control-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
-.controls-overlay button:active {
-    background-color: rgba(255, 255, 255, 0.35);
+.control-btn:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.control-btn-primary {
+    background-color: rgba(0, 200, 0, 0.3);
+    border-color: rgba(0, 255, 0, 0.5);
+}
+
+.control-btn-primary:hover {
+    background-color: rgba(0, 200, 0, 0.4);
+}
+
+.control-btn-primary:active {
+    background-color: rgba(0, 200, 0, 0.5);
+}
+
+.control-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    min-width: 3rem;
+    text-align: center;
+}
+
+/* Fullscreen cursor behavior */
+.teleprompter-view.fullscreen-active {
+    cursor: none;
 }
