@@ -1,5 +1,4 @@
 // Text normalization utilities for matching
-import { removeStopwords, eng } from 'stopword';
 
 // Custom filler words to ignore (speech artifacts)
 const FILLER_WORDS = ['um', 'uh', 'like', 'you know', 'actually', 'basically', 'so', 'well'];
@@ -36,10 +35,9 @@ export function isFillerWord(word) {
 }
 
 export function filterFillerWords(words) {
-  // Remove both standard English stopwords and custom fillers
-  const customFillers = FILLER_WORDS;
-  const allStopwords = [...eng, ...customFillers];
-  return removeStopwords(words, allStopwords);
+  // Only remove custom filler words (speech artifacts), NOT all stopwords
+  // Stopwords like "to", "the", "a" are needed for consecutive matching
+  return words.filter(word => !isFillerWord(word));
 }
 
 export function tokenize(text) {
