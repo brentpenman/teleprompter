@@ -29,10 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can pause and resume scrolling from any point
   4. User can adjust text size to match reading distance
   5. User can enter fullscreen mode for distraction-free reading
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD (to be created during `/gsd:plan-phase 1`)
+- [ ] 01-01-PLAN.md — Foundation: HTML structure, CSS styling, mode switching
+- [ ] 01-02-PLAN.md — Controls: Scrolling, speed/size controls, fullscreen, persistence
+- [ ] 01-03-PLAN.md — Verification: Human testing of complete Phase 1
 
 ### Phase 2: Speech Recognition Foundation
 **Goal**: App reliably captures and transcribes user speech with graceful error handling
@@ -83,7 +85,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Display & Manual Control | 0/TBD | Not started | - |
+| 1. Core Display & Manual Control | 0/3 | Planned | - |
 | 2. Speech Recognition Foundation | 0/TBD | Not started | - |
 | 3. Basic Text Matching | 0/TBD | Not started | - |
 | 4. Intelligent Scroll Control | 0/TBD | Not started | - |
