@@ -105,11 +105,12 @@ body {
     word-wrap: break-word;
 }
 
-/* Reading Marker - Left-facing carat */
+/* Reading Marker - Left-facing carat positioned next to text */
 .reading-marker {
     position: fixed;
     top: 33.33%;
-    left: 1rem;
+    /* Position at left edge of 800px centered text area, with small gap */
+    left: max(0.5rem, calc(50% - 400px - 2rem));
     width: 0;
     height: 0;
     border-top: 12px solid transparent;
