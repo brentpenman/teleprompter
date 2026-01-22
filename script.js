@@ -19,13 +19,22 @@ const { state, subscribe } = createState({
   scrollSpeed: 50,
   isScrolling: false,
   voiceEnabled: false,      // Voice mode on/off
-  voiceState: 'idle'        // 'idle' | 'listening' | 'error' | 'retrying'
+  voiceState: 'idle',       // 'idle' | 'listening' | 'error' | 'retrying'
+  highlightEnabled: true    // Show text highlighting
 });
 
 // Voice recognition components
 let speechRecognizer = null;
 let audioVisualizer = null;
 let audioStream = null;
+
+// Matching system components (loaded dynamically as ES modules)
+let TextMatcher = null;
+let Highlighter = null;
+let ScrollSync = null;
+let textMatcher = null;
+let highlighter = null;
+let scrollSync = null;
 
 // Scrolling loop variables
 let lastTimestamp = null;
@@ -59,6 +68,7 @@ let fullscreenBtn;
 let voiceToggle;
 let listeningIndicator;
 let waveformCanvas;
+let highlightToggle;
 
 // Scrolling loop
 function scrollLoop(timestamp) {
@@ -238,8 +248,25 @@ async function enableVoiceMode() {
   if (!speechRecognizer) {
     speechRecognizer = new SpeechRecognizer({
       onTranscript: (text, isFinal) => {
-        // For Phase 2, just log transcripts (Phase 3 will use them for matching)
         console.log(`[Voice] ${isFinal ? 'FINAL' : 'interim'}: ${text}`);
+
+        // Process transcript through matcher
+        if (textMatcher && isFinal) {
+          const match = textMatcher.processTranscript(text);
+          if (match !== null) {
+            console.log(`[Matching] Position: ${match}/${textMatcher.scriptWords.length}`);
+
+            // Update scroll position
+            if (scrollSync) {
+              scrollSync.scrollToWordIndex(match, textMatcher.scriptWords.length);
+            }
+
+            // Update highlight
+            if (highlighter) {
+              highlighter.highlightPosition(match, textMatcher.scriptWords);
+            }
+          }
+        }
       },
       onError: (errorType, isFatal) => {
         console.error(`[Voice] Error: ${errorType} (fatal: ${isFatal})`);
@@ -335,12 +362,62 @@ function toggleVoiceMode() {
   }
 }
 
+// Matching system initialization
+async function initMatchingSystem(scriptText) {
+  // Dynamic import of ES modules
+  if (!TextMatcher) {
+    const textUtils = await import('./matching/textUtils.js');
+    const matcherModule = await import('./matching/TextMatcher.js');
+    const highlightModule = await import('./matching/Highlighter.js');
+    const scrollModule = await import('./matching/ScrollSync.js');
+
+    TextMatcher = matcherModule.TextMatcher;
+    Highlighter = highlightModule.Highlighter;
+    ScrollSync = scrollModule.ScrollSync;
+  }
+
+  // Initialize with current script
+  textMatcher = new TextMatcher(scriptText, {
+    windowSize: 3,
+    threshold: 0.3,
+    minConsecutiveMatches: 2
+  });
+
+  highlighter = new Highlighter(teleprompterText, {
+    phraseLength: 3,
+    enabled: state.highlightEnabled
+  });
+
+  scrollSync = new ScrollSync(teleprompterContainer, teleprompterText, {
+    scrollDuration: 300
+  });
+
+  console.log('[Matching] System initialized with', textMatcher.scriptWords.length, 'words');
+}
+
+// Highlight toggle function
+function toggleHighlight() {
+  state.highlightEnabled = !state.highlightEnabled;
+  if (highlighter) {
+    highlighter.setEnabled(state.highlightEnabled);
+  }
+  updateHighlightButton();
+}
+
+function updateHighlightButton() {
+  const btn = document.getElementById('highlight-toggle');
+  if (btn) {
+    btn.classList.toggle('active', state.highlightEnabled);
+  }
+}
+
 // Settings persistence
 function saveSettings() {
   const settings = {
     scrollSpeed: state.scrollSpeed,
     fontSize: state.fontSize,
-    voiceEnabled: state.voiceEnabled
+    voiceEnabled: state.voiceEnabled,
+    highlightEnabled: state.highlightEnabled
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
@@ -352,6 +429,7 @@ function loadSettings() {
       const settings = JSON.parse(saved);
       state.scrollSpeed = settings.scrollSpeed ?? 50;
       state.fontSize = settings.fontSize ?? 48;
+      state.highlightEnabled = settings.highlightEnabled ?? true;
       // Note: voiceEnabled is NOT restored to state here
       // It's restored when entering teleprompter mode via switchMode
     }
@@ -395,6 +473,11 @@ function switchMode(newMode) {
     // Update state
     state.mode = 'teleprompter';
 
+    // Initialize matching system
+    initMatchingSystem(scriptContent).catch(err => {
+      console.error('[Matching] Init failed:', err);
+    });
+
     // Show controls briefly
     showControls();
 
@@ -414,6 +497,17 @@ function switchMode(newMode) {
       disableVoiceMode();
     }
 
+    // Clean up matching system
+    if (textMatcher) {
+      textMatcher.reset();
+    }
+    if (highlighter) {
+      highlighter.clear();
+    }
+    if (scrollSync) {
+      scrollSync.reset();
+    }
+
     // Switch views
     teleprompterView.classList.add('hidden');
     editorView.classList.remove('hidden');
@@ -431,7 +525,7 @@ subscribe((property, value) => {
   }
 
   // Auto-save settings
-  if (['scrollSpeed', 'fontSize', 'voiceEnabled'].includes(property)) {
+  if (['scrollSpeed', 'fontSize', 'voiceEnabled', 'highlightEnabled'].includes(property)) {
     saveSettings();
   }
 });
@@ -460,6 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
   voiceToggle = document.getElementById('voice-toggle');
   listeningIndicator = document.getElementById('listening-indicator');
   waveformCanvas = document.getElementById('waveform-canvas');
+  highlightToggle = document.getElementById('highlight-toggle');
 
   // Check browser support for speech recognition
   if (!SpeechRecognizer.isSupported()) {
@@ -470,6 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update displays with loaded settings
   updateSpeedDisplay();
   updateSizeDisplay();
+  updateHighlightButton();
 
   // Event listeners - Editor
   startButton.addEventListener('click', () => {
@@ -493,6 +589,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Voice toggle
   voiceToggle.addEventListener('click', toggleVoiceMode);
+
+  // Highlight toggle
+  if (highlightToggle) {
+    highlightToggle.addEventListener('click', toggleHighlight);
+  }
 });
 
 // Fullscreen change listener
