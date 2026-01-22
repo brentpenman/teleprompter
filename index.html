@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <!-- Editor View -->
+    <div id="editor-view">
+        <h1>Teleprompter</h1>
+        <textarea
+            id="script-input"
+            placeholder="Paste your script here...&#10;&#10;Once you've entered your text, click 'Start Teleprompter' to begin."
+            autofocus
+        ></textarea>
+        <button id="start-button">Start Teleprompter</button>
+    </div>
+
+    <!-- Teleprompter View -->
+    <div id="teleprompter-view" class="hidden">
+        <div id="teleprompter-container">
+            <div id="teleprompter-text"></div>
+        </div>
+        <div class="reading-marker"></div>
+        <div class="controls-overlay">
+            <!-- Control buttons will be added in Plan 02 -->
+        </div>
+    </div>
+</body>
+</html>
