@@ -251,8 +251,10 @@ async function enableVoiceMode() {
         console.log(`[Voice] ${isFinal ? 'FINAL' : 'interim'}: ${text}`);
 
         // Process transcript through matcher
-        if (textMatcher && isFinal) {
-          const match = textMatcher.processTranscript(text);
+        if (textMatcher) {
+          // For interim results, match the last few words directly
+          // (interim transcripts are cumulative, so we use the tail)
+          const match = textMatcher.matchTranscript(text);
           if (match !== null) {
             console.log(`[Matching] Position: ${match}/${textMatcher.scriptWords.length}`);
 

@@ -65,7 +65,7 @@ export class TextMatcher {
     return null;
   }
 
-  // Process a transcript (may contain multiple words)
+  // Process a transcript (may contain multiple words) - accumulates to buffer
   processTranscript(transcript) {
     const words = tokenize(transcript);
     const filtered = filterFillerWords(words);
@@ -79,6 +79,38 @@ export class TextMatcher {
     }
 
     return lastMatch;
+  }
+
+  // Match transcript directly without accumulating (for interim results)
+  // Takes the last N words of the transcript and tries to find them in the script
+  matchTranscript(transcript) {
+    const words = tokenize(transcript);
+    const filtered = filterFillerWords(words);
+
+    if (filtered.length < this.minConsecutiveMatches) {
+      return null;
+    }
+
+    // Use the last windowSize words for matching
+    const window = filtered.slice(-this.windowSize);
+
+    // Search forward from current position first
+    let match = this.searchRange(this.currentPosition, this.scriptWords.length, window);
+    if (match !== null) {
+      this.currentPosition = match;
+      this.lastMatchTime = Date.now();
+      return match;
+    }
+
+    // Search backward (in case user jumped back)
+    match = this.searchRange(0, this.currentPosition, window);
+    if (match !== null) {
+      this.currentPosition = match;
+      this.lastMatchTime = Date.now();
+      return match;
+    }
+
+    return null;
   }
 
   findConsecutiveMatch() {
