@@ -236,3 +236,24 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Voice matching highlights */
+::highlight(current-match) {
+    background-color: rgba(100, 200, 255, 0.35);
+    color: #fff;
+}
+
+::highlight(previous-match) {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Smooth transitions for highlight changes */
+#teleprompter-text {
+    /* Enable smooth color transitions on text */
+    transition: color 0.2s ease;
+}
+
+/* When highlighting is disabled, ensure full brightness */
+.no-highlight #teleprompter-text {
+    color: #f0f0f0 !important;
+}
