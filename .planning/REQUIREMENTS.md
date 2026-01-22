@@ -18,10 +18,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Voice Recognition
 
-- [ ] **VOICE-01**: App requests microphone access and captures speech
-- [ ] **VOICE-02**: App shows visual indicator when listening
-- [ ] **VOICE-03**: App automatically restarts recognition when it stops
-- [ ] **VOICE-04**: App recovers gracefully from errors with manual fallback
+- [x] **VOICE-01**: App requests microphone access and captures speech
+- [x] **VOICE-02**: App shows visual indicator when listening
+- [x] **VOICE-03**: App automatically restarts recognition when it stops
+- [x] **VOICE-04**: App recovers gracefully from errors with manual fallback
 
 ### Intelligent Tracking
 
@@ -81,10 +81,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DISP-04 | Phase 1 | Complete |
 | DISP-05 | Phase 1 | Complete |
 | DISP-06 | Phase 1 | Complete |
-| VOICE-01 | Phase 2 | Pending |
-| VOICE-02 | Phase 2 | Pending |
-| VOICE-03 | Phase 2 | Pending |
-| VOICE-04 | Phase 2 | Pending |
+| VOICE-01 | Phase 2 | Complete |
+| VOICE-02 | Phase 2 | Complete |
+| VOICE-03 | Phase 2 | Complete |
+| VOICE-04 | Phase 2 | Complete |
 | TRACK-01 | Phase 3 | Pending |
 | TRACK-02 | Phase 4 | Pending |
 | TRACK-03 | Phase 4 | Pending |
