@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Highlighter Test</title>
+  <style>
+    body {
+      font-family: system-ui;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #1a1a2e;
+      color: #f0f0f0;
+    }
+
+    h1, h3 { color: #fff; }
+
+    .controls {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #16213e;
+      border-radius: 8px;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin-right: 10px;
+      background: #0f3460;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #1a508b; }
+    button.active { background: #4a9; }
+
+    #script-display {
+      font-size: 32px;
+      line-height: 1.6;
+      padding: 20px;
+      background: #0f0f1e;
+      border-radius: 8px;
+    }
+
+    .position-slider {
+      width: 100%;
+      margin: 10px 0;
+    }
+
+    /* Include highlight styles */
+    ::highlight(current-match) {
+      background-color: rgba(100, 200, 255, 0.35);
+      color: #fff;
+    }
+
+    ::highlight(previous-match) {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>Highlighter Test</h1>
+
+  <div class="controls">
+    <h3>Position Control</h3>
+    <input type="range" id="position-slider" class="position-slider" min="0" max="100" value="0">
+    <div>Word: <span id="position-display">0</span> / <span id="total-words">0</span></div>
+
+    <h3>Options</h3>
+    <button id="toggle-highlight" class="active">Highlighting: ON</button>
+    <button id="reset-btn">Reset to Start</button>
+
+    <div id="status">Checking browser support...</div>
+  </div>
+
+  <div id="script-display">Welcome to our presentation today. We will discuss the importance of voice recognition technology and how it can transform the way we interact with applications. This is a demonstration of the highlighting system.</div>
+
+  <script type="module">
+    import { Highlighter } from './matching/Highlighter.js';
+    import { tokenize } from './matching/textUtils.js';
+
+    const scriptDisplay = document.getElementById('script-display');
+    const positionSlider = document.getElementById('position-slider');
+    const positionDisplay = document.getElementById('position-display');
+    const totalWordsDisplay = document.getElementById('total-words');
+    const toggleBtn = document.getElementById('toggle-highlight');
+    const resetBtn = document.getElementById('reset-btn');
+    const statusEl = document.getElementById('status');
+
+    // Get script words
+    const scriptText = scriptDisplay.textContent;
+    const scriptWords = tokenize(scriptText);
+
+    // Initialize highlighter
+    const highlighter = new Highlighter(scriptDisplay, {
+      phraseLength: 3,
+      enabled: true
+    });
+
+    // Update displays
+    totalWordsDisplay.textContent = scriptWords.length;
+    positionSlider.max = scriptWords.length - 1;
+
+    // Check support
+    if (highlighter.isSupported()) {
+      statusEl.textContent = 'CSS Custom Highlight API supported';
+      statusEl.style.color = '#4a9';
+    } else {
+      statusEl.textContent = 'CSS Custom Highlight API NOT supported - try Chrome/Edge/Safari';
+      statusEl.style.color = '#f66';
+    }
+
+    function updateHighlight() {
+      const position = parseInt(positionSlider.value);
+      positionDisplay.textContent = position;
+      highlighter.highlightPosition(position, scriptWords);
+    }
+
+    positionSlider.addEventListener('input', updateHighlight);
+
+    toggleBtn.addEventListener('click', () => {
+      const enabled = !highlighter.enabled;
+      highlighter.setEnabled(enabled);
+      toggleBtn.textContent = `Highlighting: ${enabled ? 'ON' : 'OFF'}`;
+      toggleBtn.classList.toggle('active', enabled);
+      if (enabled) updateHighlight();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      positionSlider.value = 0;
+      updateHighlight();
+    });
+
+    // Initial highlight
+    updateHighlight();
+  </script>
+</body>
+</html>
