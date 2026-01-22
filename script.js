@@ -17,8 +17,15 @@ const { state, subscribe } = createState({
   mode: 'editor',
   fontSize: 48,
   scrollSpeed: 50,
-  isScrolling: false
+  isScrolling: false,
+  voiceEnabled: false,      // Voice mode on/off
+  voiceState: 'idle'        // 'idle' | 'listening' | 'error' | 'retrying'
 });
+
+// Voice recognition components
+let speechRecognizer = null;
+let audioVisualizer = null;
+let audioStream = null;
 
 // Scrolling loop variables
 let lastTimestamp = null;
@@ -49,6 +56,9 @@ let sizeDownBtn;
 let sizeUpBtn;
 let sizeDisplay;
 let fullscreenBtn;
+let voiceToggle;
+let listeningIndicator;
+let waveformCanvas;
 
 // Scrolling loop
 function scrollLoop(timestamp) {
@@ -297,6 +307,15 @@ document.addEventListener('DOMContentLoaded', () => {
   sizeUpBtn = document.getElementById('size-up');
   sizeDisplay = document.getElementById('size-display');
   fullscreenBtn = document.getElementById('fullscreen-btn');
+  voiceToggle = document.getElementById('voice-toggle');
+  listeningIndicator = document.getElementById('listening-indicator');
+  waveformCanvas = document.getElementById('waveform-canvas');
+
+  // Check browser support for speech recognition
+  if (!SpeechRecognizer.isSupported()) {
+    voiceToggle.disabled = true;
+    voiceToggle.title = 'Voice recognition not supported in this browser. Use Chrome or Safari.';
+  }
 
   // Update displays with loaded settings
   updateSpeedDisplay();

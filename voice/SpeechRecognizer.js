@@ -12,21 +12,14 @@
 const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 /**
- * Check if browser supports speech recognition
- * @returns {boolean} True if supported (Chrome, Safari), false otherwise (Firefox)
- */
-export function isSupported() {
-  return !!SpeechRecognitionAPI;
-}
-
-// Error categorization (from RESEARCH.md)
-const RECOVERABLE_ERRORS = ['network', 'no-speech', 'aborted'];
-const FATAL_ERRORS = ['not-allowed', 'service-not-allowed', 'language-not-supported'];
-
-/**
- * SpeechRecognizer class
+ * SpeechRecognizer class with static isSupported method
  *
  * @example
+ * if (!SpeechRecognizer.isSupported()) {
+ *   console.log('Browser not supported');
+ *   return;
+ * }
+ *
  * const recognizer = new SpeechRecognizer({
  *   lang: 'en-US',
  *   onTranscript: (text, isFinal) => console.log(text, isFinal),
@@ -38,7 +31,19 @@ const FATAL_ERRORS = ['not-allowed', 'service-not-allowed', 'language-not-suppor
  * // ... later
  * recognizer.stop();
  */
-export class SpeechRecognizer {
+
+// Error categorization (from RESEARCH.md)
+const RECOVERABLE_ERRORS = ['network', 'no-speech', 'aborted'];
+const FATAL_ERRORS = ['not-allowed', 'service-not-allowed', 'language-not-supported'];
+
+class SpeechRecognizer {
+  /**
+   * Check if browser supports speech recognition
+   * @returns {boolean} True if supported (Chrome, Safari), false otherwise (Firefox)
+   */
+  static isSupported() {
+    return !!SpeechRecognitionAPI;
+  }
   /**
    * Create a SpeechRecognizer instance
    * @param {Object} options - Configuration options
@@ -48,7 +53,7 @@ export class SpeechRecognizer {
    * @param {Function} [options.onStateChange] - Callback for state changes (state)
    */
   constructor(options = {}) {
-    if (!isSupported()) {
+    if (!SpeechRecognizer.isSupported()) {
       throw new Error('SpeechRecognition not supported in this browser');
     }
 

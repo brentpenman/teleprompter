@@ -4,7 +4,7 @@
  * Displays animated frequency bars that react to voice input,
  * providing visual feedback that the microphone is active.
  */
-export class AudioVisualizer {
+class AudioVisualizer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
