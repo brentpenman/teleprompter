@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 3 of 4 (Basic Text Matching)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-22 — Phase 2 complete, all VOICE requirements verified
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-22 — Completed 03-01-PLAN.md
 
 Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 1.6 minutes
-- Total execution time: 0.15 hours
+- Total execution time: 0.18 hours
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [█████░░░░░] 50%
 |-------|-------|-------|----------|
 | 01 | 3 | 5m | 1.6m |
 | 02 | 3 | 5.5m | 1.8m |
+| 03 | 1 | 2m | 2.0m |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (verification), 02-01 (1.5m), 02-02 (1m), 02-03 (3m)
+- Last 5 plans: 02-01 (1.5m), 02-02 (1m), 02-03 (3m), 03-01 (2m)
 - Trend: Consistent velocity
 
 *Updated after each plan completion*
@@ -58,6 +59,10 @@ Recent decisions affecting current work:
 - 10 frequency bars with 2px gaps for waveform (02-02, clean visual)
 - Green normal, amber error state for indicator (02-02, clear feedback)
 - Retry indefinitely with exponential backoff (02-01, never give up automatically)
+- Fuzzy threshold 0.3 for Fuse.js (03-01, balance strictness and error handling)
+- 3-word window with 2+ consecutive matches (03-01, disambiguate while staying responsive)
+- Forward search first (03-01, performance + handles repeated phrases)
+- Stopword + custom filler filtering (03-01, ignore speech artifacts)
 
 ### Pending Todos
 
@@ -65,10 +70,14 @@ None yet.
 
 ### Blockers/Concerns
 
-None yet.
+**From 03-01:**
+- Fuzzy threshold (0.3) may need tuning after real voice testing
+- Window size (3 words) and consecutive match requirement (2+) are estimates - may need adjustment
+- Number normalization only covers 0-1000 - may need expansion for larger numbers
+- No character-level position tracking yet (only word-level) - will need this for exact highlighting
 
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed Phase 2 (02-03-PLAN.md Voice Integration)
+Stopped at: Completed 03-01-PLAN.md (Basic Text Matching)
 Resume file: None
