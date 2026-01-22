@@ -20,6 +20,19 @@ const { state, subscribe } = createState({
   isScrolling: false
 });
 
+// Scrolling loop variables
+let lastTimestamp = null;
+let animationId = null;
+
+// Constants
+const MIN_SPEED = 10;
+const MAX_SPEED = 200;
+const SPEED_INCREMENT = 10;
+const MIN_FONT_SIZE = 24;
+const MAX_FONT_SIZE = 96;
+const FONT_INCREMENT = 4;
+const SETTINGS_KEY = 'teleprompter-settings';
+
 // DOM elements (initialized on DOMContentLoaded)
 let editorView;
 let teleprompterView;
@@ -27,6 +40,176 @@ let scriptInput;
 let teleprompterText;
 let teleprompterContainer;
 let startButton;
+let exitBtn;
+let playPauseBtn;
+let speedDownBtn;
+let speedUpBtn;
+let speedDisplay;
+let sizeDownBtn;
+let sizeUpBtn;
+let sizeDisplay;
+let fullscreenBtn;
+
+// Scrolling loop
+function scrollLoop(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+
+  const deltaTime = timestamp - lastTimestamp;
+  const pixelsToScroll = (state.scrollSpeed * deltaTime) / 1000;
+
+  teleprompterContainer.scrollTop += pixelsToScroll;
+
+  lastTimestamp = timestamp;
+
+  if (state.isScrolling) {
+    animationId = requestAnimationFrame(scrollLoop);
+  }
+}
+
+function startScrolling() {
+  state.isScrolling = true;
+  lastTimestamp = null;
+  animationId = requestAnimationFrame(scrollLoop);
+  updatePlayPauseButton();
+}
+
+function stopScrolling() {
+  state.isScrolling = false;
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  updatePlayPauseButton();
+}
+
+function toggleScrolling() {
+  if (state.isScrolling) {
+    stopScrolling();
+  } else {
+    startScrolling();
+  }
+}
+
+// Speed controls
+function increaseSpeed() {
+  if (state.scrollSpeed < MAX_SPEED) {
+    state.scrollSpeed += SPEED_INCREMENT;
+    updateSpeedDisplay();
+  }
+}
+
+function decreaseSpeed() {
+  if (state.scrollSpeed > MIN_SPEED) {
+    state.scrollSpeed -= SPEED_INCREMENT;
+    updateSpeedDisplay();
+  }
+}
+
+function updateSpeedDisplay() {
+  if (speedDisplay) {
+    speedDisplay.textContent = state.scrollSpeed;
+  }
+}
+
+// Font size controls
+function increaseFontSize() {
+  if (state.fontSize < MAX_FONT_SIZE) {
+    state.fontSize += FONT_INCREMENT;
+    applyFontSize();
+    updateSizeDisplay();
+  }
+}
+
+function decreaseFontSize() {
+  if (state.fontSize > MIN_FONT_SIZE) {
+    state.fontSize -= FONT_INCREMENT;
+    applyFontSize();
+    updateSizeDisplay();
+  }
+}
+
+function applyFontSize() {
+  if (teleprompterText) {
+    teleprompterText.style.fontSize = state.fontSize + 'px';
+  }
+}
+
+function updateSizeDisplay() {
+  if (sizeDisplay) {
+    sizeDisplay.textContent = state.fontSize;
+  }
+}
+
+// Fullscreen controls
+async function toggleFullscreen() {
+  // Blur any focused element first (iOS keyboard issue)
+  if (document.activeElement) {
+    document.activeElement.blur();
+  }
+
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch (error) {
+    console.error('Fullscreen error:', error);
+    // Graceful fallback - just continue without fullscreen
+  }
+}
+
+function updateFullscreenButton() {
+  if (fullscreenBtn) {
+    fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+}
+
+function updatePlayPauseButton() {
+  if (playPauseBtn) {
+    playPauseBtn.textContent = state.isScrolling ? 'Pause' : 'Play';
+  }
+}
+
+// Auto-hide overlay
+let hideTimeout = null;
+let ticking = false;
+
+function showControls() {
+  const overlay = document.querySelector('.controls-overlay');
+  if (!overlay) return;
+
+  overlay.classList.add('visible');
+
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    if (state.mode === 'teleprompter') {
+      overlay.classList.remove('visible');
+    }
+  }, 3000);
+}
+
+// Settings persistence
+function saveSettings() {
+  const settings = {
+    scrollSpeed: state.scrollSpeed,
+    fontSize: state.fontSize
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) {
+      const settings = JSON.parse(saved);
+      state.scrollSpeed = settings.scrollSpeed ?? 50;
+      state.fontSize = settings.fontSize ?? 48;
+    }
+  } catch (e) {
+    console.error('Failed to load settings:', e);
+  }
+}
 
 // Mode switching function
 function switchMode(newMode) {
@@ -38,7 +221,7 @@ function switchMode(newMode) {
     teleprompterText.textContent = scriptContent;
 
     // Apply font size from state
-    teleprompterText.style.fontSize = `${state.fontSize}px`;
+    applyFontSize();
 
     // Reset scroll position
     teleprompterContainer.scrollTop = 0;
@@ -49,31 +232,42 @@ function switchMode(newMode) {
 
     // Update state
     state.mode = 'teleprompter';
+
+    // Show controls briefly
+    showControls();
   } else if (newMode === 'editor') {
+    // Stop scrolling if active
+    if (state.isScrolling) {
+      stopScrolling();
+    }
+
     // Switch views
     teleprompterView.classList.add('hidden');
     editorView.classList.remove('hidden');
-
-    // Stop scrolling if active (placeholder for Plan 02)
-    if (state.isScrolling) {
-      state.isScrolling = false;
-    }
 
     // Update state
     state.mode = 'editor';
   }
 }
 
-// State subscription handler (for future use)
+// State subscription handler
 subscribe((property, value) => {
   // Apply font size changes to teleprompter
   if (property === 'fontSize' && state.mode === 'teleprompter') {
     teleprompterText.style.fontSize = `${value}px`;
   }
+
+  // Auto-save settings
+  if (['scrollSpeed', 'fontSize'].includes(property)) {
+    saveSettings();
+  }
 });
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+  // Load settings from localStorage
+  loadSettings();
+
   // Get DOM elements
   editorView = document.getElementById('editor-view');
   teleprompterView = document.getElementById('teleprompter-view');
@@ -81,14 +275,62 @@ document.addEventListener('DOMContentLoaded', () => {
   teleprompterText = document.getElementById('teleprompter-text');
   teleprompterContainer = document.getElementById('teleprompter-container');
   startButton = document.getElementById('start-button');
+  exitBtn = document.getElementById('exit-btn');
+  playPauseBtn = document.getElementById('play-pause-btn');
+  speedDownBtn = document.getElementById('speed-down');
+  speedUpBtn = document.getElementById('speed-up');
+  speedDisplay = document.getElementById('speed-display');
+  sizeDownBtn = document.getElementById('size-down');
+  sizeUpBtn = document.getElementById('size-up');
+  sizeDisplay = document.getElementById('size-display');
+  fullscreenBtn = document.getElementById('fullscreen-btn');
 
-  // Event listeners
+  // Update displays with loaded settings
+  updateSpeedDisplay();
+  updateSizeDisplay();
+
+  // Event listeners - Editor
   startButton.addEventListener('click', () => {
     switchMode('teleprompter');
   });
 
-  // Placeholder for exit button (will be added in Plan 02)
-  // exitButton.addEventListener('click', () => {
-  //   switchMode('editor');
-  // });
+  // Event listeners - Teleprompter controls
+  exitBtn.addEventListener('click', () => {
+    switchMode('editor');
+  });
+
+  playPauseBtn.addEventListener('click', toggleScrolling);
+
+  speedUpBtn.addEventListener('click', increaseSpeed);
+  speedDownBtn.addEventListener('click', decreaseSpeed);
+
+  sizeUpBtn.addEventListener('click', increaseFontSize);
+  sizeDownBtn.addEventListener('click', decreaseFontSize);
+
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
 });
+
+// Fullscreen change listener
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) {
+    teleprompterView.classList.add('fullscreen-active');
+  } else {
+    teleprompterView.classList.remove('fullscreen-active');
+  }
+  updateFullscreenButton();
+});
+
+// Mouse move and touch handlers for auto-hide controls
+document.addEventListener('mousemove', () => {
+  if (state.mode !== 'teleprompter') return;
+
+  if (!ticking) {
+    requestAnimationFrame(() => {
+      showControls();
+      ticking = false;
+    });
+    ticking = true;
+  }
+});
+
+document.addEventListener('touchstart', showControls);
