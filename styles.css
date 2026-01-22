@@ -105,14 +105,17 @@ body {
     word-wrap: break-word;
 }
 
-/* Reading Marker */
+/* Reading Marker - Left-facing carat */
 .reading-marker {
     position: fixed;
     top: 33.33%;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: rgba(255, 255, 255, 0.3);
+    left: 1rem;
+    width: 0;
+    height: 0;
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-left: 16px solid rgba(255, 255, 255, 0.5);
+    transform: translateY(-50%);
     pointer-events: none;
     z-index: 10;
 }
