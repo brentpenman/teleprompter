@@ -12,7 +12,7 @@ This roadmap builds a voice-controlled teleprompter in four phases. Phase 1 esta
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Display & Manual Control** - Broadcast-style teleprompter with manual scroll
+- [x] **Phase 1: Core Display & Manual Control** - Broadcast-style teleprompter with manual scroll
 - [ ] **Phase 2: Speech Recognition Foundation** - Reliable speech capture with error handling
 - [ ] **Phase 3: Basic Text Matching** - Match spoken words to script position
 - [ ] **Phase 4: Intelligent Scroll Control** - Confidence-based auto-scroll with pause detection
@@ -32,9 +32,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Foundation: HTML structure, CSS styling, mode switching
-- [ ] 01-02-PLAN.md — Controls: Scrolling, speed/size controls, fullscreen, persistence
-- [ ] 01-03-PLAN.md — Verification: Human testing of complete Phase 1
+- [x] 01-01-PLAN.md — Foundation: HTML structure, CSS styling, mode switching
+- [x] 01-02-PLAN.md — Controls: Scrolling, speed/size controls, fullscreen, persistence
+- [x] 01-03-PLAN.md — Verification: Human testing of complete Phase 1
 
 ### Phase 2: Speech Recognition Foundation
 **Goal**: App reliably captures and transcribes user speech with graceful error handling
@@ -85,7 +85,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Display & Manual Control | 0/3 | Planned | - |
+| 1. Core Display & Manual Control | 3/3 | Complete | 2026-01-22 |
 | 2. Speech Recognition Foundation | 0/TBD | Not started | - |
 | 3. Basic Text Matching | 0/TBD | Not started | - |
 | 4. Intelligent Scroll Control | 0/TBD | Not started | - |

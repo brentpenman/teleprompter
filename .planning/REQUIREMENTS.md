@@ -9,12 +9,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Display
 
-- [ ] **DISP-01**: User can paste/enter script text into the app
-- [ ] **DISP-02**: User can start/pause manual scrolling
-- [ ] **DISP-03**: User can adjust scroll speed
-- [ ] **DISP-04**: User can adjust text size
-- [ ] **DISP-05**: Display shows dark background with light text (broadcast style)
-- [ ] **DISP-06**: User can enter fullscreen mode
+- [x] **DISP-01**: User can paste/enter script text into the app
+- [x] **DISP-02**: User can start/pause manual scrolling
+- [x] **DISP-03**: User can adjust scroll speed
+- [x] **DISP-04**: User can adjust text size
+- [x] **DISP-05**: Display shows dark background with light text (broadcast style)
+- [x] **DISP-06**: User can enter fullscreen mode
 
 ### Voice Recognition
 
@@ -75,12 +75,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DISP-01 | Phase 1 | Pending |
-| DISP-02 | Phase 1 | Pending |
-| DISP-03 | Phase 1 | Pending |
-| DISP-04 | Phase 1 | Pending |
-| DISP-05 | Phase 1 | Pending |
-| DISP-06 | Phase 1 | Pending |
+| DISP-01 | Phase 1 | Complete |
+| DISP-02 | Phase 1 | Complete |
+| DISP-03 | Phase 1 | Complete |
+| DISP-04 | Phase 1 | Complete |
+| DISP-05 | Phase 1 | Complete |
+| DISP-06 | Phase 1 | Complete |
 | VOICE-01 | Phase 2 | Pending |
 | VOICE-02 | Phase 2 | Pending |
 | VOICE-03 | Phase 2 | Pending |

@@ -5,32 +5,32 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** The teleprompter follows YOU, not the other way around. It matches your natural speaking rhythm and handles the messiness of real speech.
-**Current focus:** Phase 1 - Core Display & Manual Control
+**Current focus:** Phase 2 - Speech Recognition Foundation
 
 ## Current Position
 
-Phase: 1 of 4 (Core Display & Manual Control)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-22 — Completed 01-02-PLAN.md
+Phase: 2 of 4 (Speech Recognition Foundation)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-01-22 — Phase 1 complete, all requirements verified
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██░░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 1.5 minutes
+- Total plans completed: 3
+- Average duration: 1.6 minutes
 - Total execution time: 0.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 2 | 3m | 1.5m |
+| 01 | 3 | 5m | 1.6m |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1m), 01-02 (2m)
+- Last 5 plans: 01-01 (1m), 01-02 (4m), 01-03 (verification)
 - Trend: Consistent velocity
 
 *Updated after each plan completion*
@@ -49,7 +49,7 @@ Recent decisions affecting current work:
 - Use Proxy pattern for state management (01-01, enables reactive updates)
 - System font stack instead of custom fonts (01-01, zero latency)
 - Left-aligned text not centered (01-01, broadcast standard)
-- Reading marker at 33.33% top third (01-01, comfortable eye position)
+- Reading marker as left-facing carat (01-03, user preference)
 - Speed range 10-200 pixels/second (01-02, balances precision and speed)
 - Font size range 24-96px (01-02, readable on all screens)
 - Auto-hide controls after 3 seconds (01-02, distraction-free reading)
@@ -65,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22T21:05:47Z
-Stopped at: Completed 01-02-PLAN.md (Controls: scrolling, play/pause, speed, size, fullscreen, keyboard shortcuts, persistence)
+Last session: 2026-01-22
+Stopped at: Phase 1 complete, ready to plan Phase 2
 Resume file: None
