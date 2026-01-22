@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 3 of 4 (Basic Text Matching)
-Plan: 1 of TBD in current phase
+Plan: 2 of TBD in current phase
 Status: In progress
-Last activity: 2026-01-22 — Completed 03-01-PLAN.md
+Last activity: 2026-01-22 — Completed 03-02-PLAN.md
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 1.6 minutes
-- Total execution time: 0.18 hours
+- Total plans completed: 8
+- Average duration: 1.7 minutes
+- Total execution time: 0.21 hours
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [█████░░░░░] 50%
 |-------|-------|-------|----------|
 | 01 | 3 | 5m | 1.6m |
 | 02 | 3 | 5.5m | 1.8m |
-| 03 | 1 | 2m | 2.0m |
+| 03 | 2 | 4.1m | 2.0m |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (1.5m), 02-02 (1m), 02-03 (3m), 03-01 (2m)
+- Last 5 plans: 02-02 (1m), 02-03 (3m), 03-01 (2m), 03-02 (2.1m)
 - Trend: Consistent velocity
 
 *Updated after each plan completion*
@@ -63,6 +63,9 @@ Recent decisions affecting current work:
 - 3-word window with 2+ consecutive matches (03-01, disambiguate while staying responsive)
 - Forward search first (03-01, performance + handles repeated phrases)
 - Stopword + custom filler filtering (03-01, ignore speech artifacts)
+- CSS Custom Highlight API for highlighting (03-02, zero-DOM-manipulation performance)
+- Phrase-level highlighting (3 words) not single word (03-02, better reading context)
+- Dim previous text to 50% opacity (03-02, visual feedback of progress)
 
 ### Pending Todos
 
@@ -76,8 +79,11 @@ None yet.
 - Number normalization only covers 0-1000 - may need expansion for larger numbers
 - No character-level position tracking yet (only word-level) - will need this for exact highlighting
 
+**From 03-02:**
+- CSS Custom Highlight API requires modern browser (Chrome 105+, Safari 17.2+) - graceful degradation included but highlighting won't work in older browsers
+
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 03-01-PLAN.md (Basic Text Matching)
+Stopped at: Completed 03-02-PLAN.md (Text Highlighting)
 Resume file: None
