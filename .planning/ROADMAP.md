@@ -60,10 +60,12 @@ Plans:
   1. User speaks words from script and app scrolls to matching position
   2. User can paraphrase slightly and app still finds approximate match
   3. App highlights current matched position in the script
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD (to be created during `/gsd:plan-phase 3`)
+- [ ] 03-01-PLAN.md — TextMatcher: Fuzzy matching engine with Fuse.js
+- [ ] 03-02-PLAN.md — Highlighter: CSS Custom Highlight API for visual feedback
+- [ ] 03-03-PLAN.md — Integration: Wire voice to matching to scroll
 
 ### Phase 4: Intelligent Scroll Control
 **Goal**: App behaves like human operator - scrolling when confident, pausing when uncertain
@@ -89,5 +91,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Core Display & Manual Control | 3/3 | Complete | 2026-01-22 |
 | 2. Speech Recognition Foundation | 3/3 | Complete | 2026-01-22 |
-| 3. Basic Text Matching | 0/TBD | Not started | - |
+| 3. Basic Text Matching | 0/3 | Planned | - |
 | 4. Intelligent Scroll Control | 0/TBD | Not started | - |
