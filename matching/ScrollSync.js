@@ -40,6 +40,7 @@ export class ScrollSync {
     this.scrollState = ScrollState.CONFIDENT;
     this.uncertainStartTime = null;
     this.patientThreshold = options.patientThreshold || 4000; // 4 seconds before off-script
+    this.silenceThreshold = options.silenceThreshold || 2000; // 2 seconds of no speech -> uncertain
 
     // Easing time constants (ms)
     this.accelerationTimeConstant = options.accelerationTimeConstant || 1500;
@@ -282,6 +283,22 @@ export class ScrollSync {
     const targetScroll = (this.targetWordIndex / this.totalWords) * maxScroll;
     const overshootPixels = currentScroll - targetScroll; // positive = ahead, negative = behind
 
+    // Check for silence (no matches for a while) - auto-transition to uncertain
+    const timeSinceMatch = Date.now() - this.lastMatchTime;
+    if (this.scrollState === ScrollState.CONFIDENT && this.lastMatchTime > 0) {
+      if (timeSinceMatch > this.silenceThreshold) {
+        this.scrollState = ScrollState.UNCERTAIN;
+        this.uncertainStartTime = Date.now() - (timeSinceMatch - this.silenceThreshold);
+        this.onStateChange(this.scrollState, ScrollState.CONFIDENT);
+      }
+    } else if (this.scrollState === ScrollState.UNCERTAIN && this.uncertainStartTime) {
+      const uncertainDuration = Date.now() - this.uncertainStartTime;
+      if (uncertainDuration > this.patientThreshold) {
+        this.scrollState = ScrollState.OFF_SCRIPT;
+        this.onStateChange(this.scrollState, ScrollState.UNCERTAIN);
+      }
+    }
+
     // Determine target speed based on state
     let targetSpeed;
     switch (this.scrollState) {
@@ -381,6 +398,7 @@ export class ScrollSync {
     if (params.decelerationTimeConstant !== undefined) this.decelerationTimeConstant = params.decelerationTimeConstant;
     if (params.patientThreshold !== undefined) this.patientThreshold = params.patientThreshold;
     if (params.maxForwardSkip !== undefined) this.maxForwardSkip = params.maxForwardSkip;
+    if (params.silenceThreshold !== undefined) this.silenceThreshold = params.silenceThreshold;
   }
 
   // Get state for debugging

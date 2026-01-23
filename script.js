@@ -412,7 +412,8 @@ function setupTuningControls() {
     'tune-accel-time': 'accelerationTimeConstant',
     'tune-decel-time': 'decelerationTimeConstant',
     'tune-patient': 'patientThreshold',
-    'tune-max-skip': 'maxForwardSkip'
+    'tune-max-skip': 'maxForwardSkip',
+    'tune-silence': 'silenceThreshold'
   };
 
   for (const [inputId, param] of Object.entries(tuneInputs)) {
@@ -421,8 +422,8 @@ function setupTuningControls() {
       input.addEventListener('input', () => {
         if (!scrollSync) return;
         let value = parseFloat(input.value);
-        // Convert patient threshold from seconds to ms
-        if (param === 'patientThreshold') value *= 1000;
+        // Convert thresholds from seconds to ms
+        if (param === 'patientThreshold' || param === 'silenceThreshold') value *= 1000;
         scrollSync.setTuning({ [param]: value });
         console.log(`[Tuning] ${param} = ${value}`);
       });
