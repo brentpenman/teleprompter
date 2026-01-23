@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 4 of 4 (Intelligent Scroll Control)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-23 — Completed 04-01-PLAN.md (confidence scoring)
+Last activity: 2026-01-23 — Completed 04-03-PLAN.md (intelligent scroll control)
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: 2.4 minutes
-- Total execution time: 0.43 hours
+- Total execution time: 0.47 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [████████░░] 82%
 | 01 | 3 | 5m | 1.6m |
 | 02 | 3 | 5.5m | 1.8m |
 | 03 | 3 | 19m | 6.3m |
-| 04 | 2 | 2.5m | 1.25m |
+| 04 | 3 | 4.5m | 1.5m |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (2m), 03-02 (2.1m), 03-03 (15m with tuning), 04-02 (1m), 04-01 (1.5m)
-- Trend: Phase 4 plans executing quickly (confidence scoring took 1.5 min)
+- Last 5 plans: 03-02 (2.1m), 03-03 (15m with tuning), 04-02 (1m), 04-01 (1.5m), 04-03 (2m)
+- Trend: Phase 4 plans executing quickly (~1.5 min average)
 
 *Updated after each plan completion*
 
@@ -74,6 +74,11 @@ Recent decisions affecting current work:
 - Three confidence levels high/medium/low (04-01, visual clarity)
 - Opacity modulation: high=1.0, medium=0.6, low=0.3 (04-01, brightness feedback)
 - Smooth opacity transitions with 0.1 blend factor (04-01, gradual visual change)
+- State machine: CONFIDENT/UNCERTAIN/OFF_SCRIPT (04-03, human-like scroll behavior)
+- Forward skip confidence: 0.85, backward skip: 0.92 (04-03, prevent false jumps)
+- Patient threshold: 4s before off-script (04-03, allow speaker recovery)
+- Exponential easing: accel=1500ms, decel=500ms (04-03, smooth speed transitions)
+- Never scroll past lastMatchedPosition (04-03, keep spoken text visible)
 
 ### Pending Todos
 
@@ -93,15 +98,17 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 04-01-PLAN.md (confidence scoring and visualizer opacity)
+Stopped at: Completed 04-03-PLAN.md (intelligent scroll control with state machine)
 Resume file: None
 
 ### Tuning Notes for Future Sessions
 
 ScrollSync parameters that may need adjustment:
 - `baseSpeed`: 60 px/s (default scroll speed)
-- `overshootTime`: 500ms (time before stopping after speech pause)
-- `speakingPace` smoothing: 0.6/0.4 blend
-- Behind threshold: 50px before speeding up
-- Ahead threshold: 10px before slowing down
-- Speed multipliers in adjustSpeed()
+- `patientThreshold`: 4000ms (time before transitioning to OFF_SCRIPT)
+- `accelerationTimeConstant`: 1500ms (ramp up smoothness)
+- `decelerationTimeConstant`: 500ms (slow down speed)
+- `forwardSkipConfidence`: 0.85 (threshold for forward skips)
+- `backwardSkipConfidence`: 0.92 (threshold for backward skips)
+- `shortSkipThreshold`: 20 words (smooth scroll vs instant jump cutoff)
+- `longSkipThreshold`: 100 words (instant jump cutoff)
