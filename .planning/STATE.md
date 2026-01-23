@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 ## Current Position
 
-Phase: 3 of 4 (Basic Text Matching) — COMPLETE
-Plan: 3 of 3 in current phase
-Status: Phase complete, ready for Phase 4
-Last activity: 2026-01-22 — Phase 3 complete, voice-to-scroll verified
+Phase: 4 of 4 (Intelligent Scroll Control)
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-23 — Completed 04-02-PLAN.md (remove dimming)
 
-Progress: [███████░░░] 75%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 2.5 minutes
-- Total execution time: 0.38 hours
+- Total plans completed: 10
+- Average duration: 2.3 minutes
+- Total execution time: 0.40 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [███████░░░] 75%
 | 01 | 3 | 5m | 1.6m |
 | 02 | 3 | 5.5m | 1.8m |
 | 03 | 3 | 19m | 6.3m |
+| 04 | 2 | 1m | 0.5m |
 
 **Recent Trend:**
-- Last 5 plans: 02-03 (3m), 03-01 (2m), 03-02 (2.1m), 03-03 (15m with tuning)
-- Trend: Phase 3 required more iteration due to voice-scroll tuning
+- Last 5 plans: 03-01 (2m), 03-02 (2.1m), 03-03 (15m with tuning), 04-02 (1m)
+- Trend: Phase 4 plan 02 was a simple simplification task
 
 *Updated after each plan completion*
 
@@ -65,7 +66,8 @@ Recent decisions affecting current work:
 - Stopword + custom filler filtering (03-01, ignore speech artifacts)
 - CSS Custom Highlight API for highlighting (03-02, zero-DOM-manipulation performance)
 - Phrase-level highlighting (3 words) not single word (03-02, better reading context)
-- Dim previous text to 50% opacity (03-02, visual feedback of progress)
+- ~~Dim previous text to 50% opacity (03-02, visual feedback of progress)~~ REMOVED in 04-02 (user found annoying)
+- No dimming of previously read text (04-02, cleaner visual experience per user feedback)
 - Pace-based scrolling not position-jumping (03-03, smooth teleprompter feel)
 - Process interim results not just final (03-03, responsive feedback)
 - Position-based stopping (03-03, never scroll past matched phrase)
@@ -87,8 +89,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22
-Stopped at: Completed Phase 3 (Basic Text Matching)
+Last session: 2026-01-23
+Stopped at: Completed 04-02-PLAN.md (remove dimming)
 Resume file: None
 
 ### Tuning Notes for Future Sessions
