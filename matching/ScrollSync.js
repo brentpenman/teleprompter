@@ -97,19 +97,38 @@ export class ScrollSync {
 
   // Update state machine based on match confidence
   // Called when TextMatcher produces a result
+  // Returns { state, positionAccepted } so caller knows if position was used
   updateConfidence(matchResult) {
     const now = Date.now();
     const prevState = this.scrollState;
     const level = matchResult.level; // 'high', 'medium', 'low'
 
-    // Update last matched position if we have a match
-    if (matchResult.position !== null) {
-      this.lastMatchedPosition = Math.max(this.lastMatchedPosition, matchResult.position);
+    // Pre-check: would this position be rejected as too large a skip?
+    let positionAccepted = false;
+    if (matchResult.position !== null && level === 'high') {
+      const distance = matchResult.position - this.targetWordIndex;
+      const absDistance = Math.abs(distance);
+      const isForward = distance > 0;
+
+      if (absDistance > 5 && isForward && absDistance > this.maxForwardSkip) {
+        // Reject this position - too large a forward skip
+        console.log(`[Scroll] Rejecting forward skip of ${absDistance} words (max: ${this.maxForwardSkip})`);
+        // Treat as if no position was found
+        matchResult = { ...matchResult, position: null, level: 'low' };
+      }
     }
+
+    // Update last matched position only if we have an accepted match
+    if (matchResult.position !== null && matchResult.level === 'high') {
+      this.lastMatchedPosition = Math.max(this.lastMatchedPosition, matchResult.position);
+      positionAccepted = true;
+    }
+
+    const effectiveLevel = matchResult.level;
 
     switch (this.scrollState) {
       case ScrollState.CONFIDENT:
-        if (level === 'high') {
+        if (effectiveLevel === 'high') {
           // Stay confident - update position
           if (matchResult.position !== null) {
             this.handleMatch(matchResult);
@@ -122,7 +141,7 @@ export class ScrollSync {
         break;
 
       case ScrollState.UNCERTAIN:
-        if (level === 'high') {
+        if (effectiveLevel === 'high') {
           // Back to confident
           this.scrollState = ScrollState.CONFIDENT;
           this.uncertainStartTime = null;
@@ -139,7 +158,7 @@ export class ScrollSync {
         break;
 
       case ScrollState.OFF_SCRIPT:
-        if (level === 'high' && matchResult.position !== null) {
+        if (effectiveLevel === 'high' && matchResult.position !== null) {
           // Found position again
           this.scrollState = ScrollState.CONFIDENT;
           this.uncertainStartTime = null;
@@ -152,9 +171,9 @@ export class ScrollSync {
     if (prevState !== this.scrollState) {
       this.onStateChange(this.scrollState, prevState);
     }
-    this.onConfidenceChange(level, matchResult.confidence);
+    this.onConfidenceChange(effectiveLevel, matchResult.confidence);
 
-    return this.scrollState;
+    return { state: this.scrollState, positionAccepted };
   }
 
   // Handle a confident match - includes skip detection and pace calculation
@@ -178,12 +197,6 @@ export class ScrollSync {
 
     // Check if this is a significant skip
     if (absDistance > 5) { // More than 5 words difference
-      // Reject huge forward skips (likely false positive from repeated phrases)
-      if (isForward && absDistance > this.maxForwardSkip) {
-        console.log(`[Scroll] Rejecting forward skip of ${absDistance} words (max: ${this.maxForwardSkip})`);
-        return; // Don't update position
-      }
-
       const requiredConfidence = isForward
         ? this.forwardSkipConfidence
         : this.backwardSkipConfidence;

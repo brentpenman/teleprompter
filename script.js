@@ -286,21 +286,21 @@ async function enableVoiceMode() {
           // Use confidence-aware matching
           const result = textMatcher.getMatchWithConfidence(text);
 
-          // Update scroll state machine
-          const newState = scrollSync.updateConfidence(result);
+          // Update scroll state machine (may reject large skips)
+          const { state: newState, positionAccepted } = scrollSync.updateConfidence(result);
 
           // Update visual confidence indicator
           if (audioVisualizer) {
-            audioVisualizer.setConfidenceLevel(result.level);
+            audioVisualizer.setConfidenceLevel(positionAccepted ? result.level : 'low');
           }
 
-          // Update highlight if we have a position
-          if (result.position !== null && highlighter) {
+          // Update highlight only if position was accepted (not rejected as skip)
+          if (positionAccepted && result.position !== null && highlighter) {
             highlighter.highlightPosition(result.position, textMatcher.scriptWords);
           }
 
           // Debug logging
-          console.log(`[Matching] Position: ${result.position}, Confidence: ${result.level} (${(result.confidence * 100).toFixed(0)}%), State: ${newState}`);
+          console.log(`[Matching] Position: ${result.position}${positionAccepted ? '' : ' (rejected)'}, Confidence: ${result.level} (${(result.confidence * 100).toFixed(0)}%), State: ${newState}`);
         }
       },
       onError: (errorType, isFatal) => {
