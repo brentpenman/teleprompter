@@ -95,19 +95,28 @@ export class TextMatcher {
     const window = filtered.slice(-this.windowSize);
 
     // Search forward from current position first
-    let match = this.searchRange(this.currentPosition, this.scriptWords.length, window);
-    if (match !== null) {
-      this.currentPosition = match;
-      this.lastMatchTime = Date.now();
-      return match;
+    let matchStart = this.searchRange(this.currentPosition, this.scriptWords.length, window);
+    if (matchStart !== null) {
+      // Return END of match (where user currently is), not start
+      const matchEnd = matchStart + window.length - 1;
+
+      // Only move forward, never backward (prevents jitter from interim changes)
+      if (matchEnd >= this.currentPosition) {
+        this.currentPosition = matchEnd;
+        this.lastMatchTime = Date.now();
+        return matchEnd;
+      }
     }
 
-    // Search backward (in case user jumped back)
-    match = this.searchRange(0, this.currentPosition, window);
-    if (match !== null) {
-      this.currentPosition = match;
+    // Search backward only for big jumps (user intentionally skipped back)
+    // Require finding match at least 10 words back to count as intentional
+    const jumpThreshold = 10;
+    matchStart = this.searchRange(0, Math.max(0, this.currentPosition - jumpThreshold), window);
+    if (matchStart !== null) {
+      const matchEnd = matchStart + window.length - 1;
+      this.currentPosition = matchEnd;
       this.lastMatchTime = Date.now();
-      return match;
+      return matchEnd;
     }
 
     return null;
