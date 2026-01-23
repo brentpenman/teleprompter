@@ -22,7 +22,7 @@ export class ScrollSync {
     this.speakingPace = 0; // words per second
 
     // How long to keep scrolling after last match (ms)
-    this.overshootTime = 2000;
+    this.overshootTime = 500;
 
     // Animation
     this.animationId = null;
@@ -85,9 +85,9 @@ export class ScrollSync {
     // Check if we should stop (no speech for overshootTime)
     const timeSinceLastMatch = Date.now() - this.lastMatchTime;
     if (timeSinceLastMatch > this.overshootTime) {
-      // Gradually slow down instead of stopping abruptly
-      this.currentSpeed *= 0.95;
-      if (this.currentSpeed < 5) {
+      // Quickly slow down and stop
+      this.currentSpeed *= 0.85;
+      if (this.currentSpeed < 10) {
         this.stopScrolling();
         return;
       }
@@ -133,16 +133,17 @@ export class ScrollSync {
     let targetSpeed = Math.max(paceBasedSpeed, this.baseSpeed * 0.5);
 
     // Adjust for gap - speed up if behind, slow down if ahead
-    if (gap > 0.02) {
+    if (gap > 0.01) {
       // We're behind - speed up proportionally
-      targetSpeed *= (1 + gap * 5);
-    } else if (gap < -0.02) {
-      // We're ahead - slow down but don't stop
-      targetSpeed *= Math.max(0.3, 1 + gap * 3);
+      targetSpeed *= (1 + gap * 8);
+    } else if (gap < -0.01) {
+      // We're ahead - slow down aggressively
+      // gap of -0.05 means we're 5% ahead, should slow to ~25% speed
+      targetSpeed *= Math.max(0.15, 1 + gap * 10);
     }
 
     // Clamp speed to reasonable range
-    targetSpeed = Math.max(20, Math.min(targetSpeed, this.baseSpeed * 4));
+    targetSpeed = Math.max(10, Math.min(targetSpeed, this.baseSpeed * 4));
 
     // Smooth speed changes
     this.currentSpeed = this.currentSpeed * 0.9 + targetSpeed * 0.1;
