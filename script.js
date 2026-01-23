@@ -125,6 +125,36 @@ function toggleScrolling() {
   }
 }
 
+function resetTeleprompter() {
+  // Stop voice mode if active
+  if (state.voiceEnabled) {
+    disableVoiceMode();
+  }
+
+  // Stop manual scrolling
+  if (state.isScrolling) {
+    stopScrolling();
+  }
+
+  // Reset scroll position to top
+  if (teleprompterContainer) {
+    teleprompterContainer.scrollTop = 0;
+  }
+
+  // Reset matching system
+  if (textMatcher) {
+    textMatcher.reset();
+  }
+  if (highlighter) {
+    highlighter.clear();
+  }
+  if (scrollSync) {
+    scrollSync.reset();
+  }
+
+  console.log('[Reset] Teleprompter reset to start');
+}
+
 // Speed controls
 function increaseSpeed() {
   if (state.scrollSpeed < MAX_SPEED) {
@@ -310,6 +340,11 @@ function disableVoiceMode() {
   // Stop visualizer (this also stops the audio stream)
   if (audioVisualizer) {
     audioVisualizer.stop();
+  }
+
+  // Stop voice-controlled scrolling
+  if (scrollSync) {
+    scrollSync.stop();
   }
 
   // Clear references
@@ -649,6 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
   exitBtn.addEventListener('click', () => {
     switchMode('editor');
   });
+
+  document.getElementById('reset-btn').addEventListener('click', resetTeleprompter);
 
   playPauseBtn.addEventListener('click', toggleScrolling);
 
