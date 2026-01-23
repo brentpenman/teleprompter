@@ -1,5 +1,12 @@
 // Scroll synchronization module
-// Pace-based scrolling that follows speaking rhythm
+// Pace-based scrolling that follows speaking rhythm with state-based control
+
+// Scroll state enum for state machine
+export const ScrollState = {
+  CONFIDENT: 'confident',
+  UNCERTAIN: 'uncertain',
+  OFF_SCRIPT: 'off_script'
+};
 
 export class ScrollSync {
   constructor(containerElement, textElement, options = {}) {
@@ -28,6 +35,29 @@ export class ScrollSync {
     this.animationId = null;
     this.lastFrameTime = 0;
     this.isScrolling = false;
+
+    // State machine
+    this.scrollState = ScrollState.CONFIDENT;
+    this.uncertainStartTime = null;
+    this.patientThreshold = options.patientThreshold || 4000; // 4 seconds before off-script
+
+    // Easing time constants (ms)
+    this.accelerationTimeConstant = 1500;
+    this.decelerationTimeConstant = 500;
+    this.resumeTimeConstant = 1000;
+
+    // Skip detection
+    this.shortSkipThreshold = 20;  // words - below this, smooth scroll
+    this.longSkipThreshold = 100;  // words - above this, instant jump
+    this.forwardSkipConfidence = 0.85;
+    this.backwardSkipConfidence = 0.92;
+
+    // Boundary tracking (never scroll past last matched position)
+    this.lastMatchedPosition = 0; // word index of last confirmed match
+
+    // Callbacks
+    this.onStateChange = options.onStateChange || (() => {});
+    this.onConfidenceChange = options.onConfidenceChange || (() => {});
   }
 
   // Called when matcher finds a position
@@ -59,6 +89,127 @@ export class ScrollSync {
     }
   }
 
+  // Update state machine based on match confidence
+  // Called when TextMatcher produces a result
+  updateConfidence(matchResult) {
+    const now = Date.now();
+    const prevState = this.scrollState;
+    const level = matchResult.level; // 'high', 'medium', 'low'
+
+    // Update last matched position if we have a match
+    if (matchResult.position !== null) {
+      this.lastMatchedPosition = Math.max(this.lastMatchedPosition, matchResult.position);
+    }
+
+    switch (this.scrollState) {
+      case ScrollState.CONFIDENT:
+        if (level === 'high') {
+          // Stay confident - update position
+          if (matchResult.position !== null) {
+            this.handleMatch(matchResult);
+          }
+        } else {
+          // Becoming uncertain
+          this.scrollState = ScrollState.UNCERTAIN;
+          this.uncertainStartTime = now;
+        }
+        break;
+
+      case ScrollState.UNCERTAIN:
+        if (level === 'high') {
+          // Back to confident
+          this.scrollState = ScrollState.CONFIDENT;
+          this.uncertainStartTime = null;
+          if (matchResult.position !== null) {
+            this.handleMatch(matchResult);
+          }
+        } else {
+          // Check patience threshold
+          const duration = now - this.uncertainStartTime;
+          if (duration > this.patientThreshold) {
+            this.scrollState = ScrollState.OFF_SCRIPT;
+          }
+        }
+        break;
+
+      case ScrollState.OFF_SCRIPT:
+        if (level === 'high' && matchResult.position !== null) {
+          // Found position again
+          this.scrollState = ScrollState.CONFIDENT;
+          this.uncertainStartTime = null;
+          this.handleMatch(matchResult);
+        }
+        break;
+    }
+
+    // Notify callbacks
+    if (prevState !== this.scrollState) {
+      this.onStateChange(this.scrollState, prevState);
+    }
+    this.onConfidenceChange(level, matchResult.confidence);
+
+    return this.scrollState;
+  }
+
+  // Handle a confident match - includes skip detection
+  handleMatch(matchResult) {
+    const distance = matchResult.position - this.targetWordIndex;
+    const absDistance = Math.abs(distance);
+    const isForward = distance > 0;
+
+    // Check if this is a significant skip
+    if (absDistance > 5) { // More than 5 words difference
+      const requiredConfidence = isForward
+        ? this.forwardSkipConfidence
+        : this.backwardSkipConfidence;
+
+      // Reject low-confidence skips
+      if (matchResult.confidence < requiredConfidence) {
+        return; // Don't update position
+      }
+
+      // Determine animation type
+      if (absDistance >= this.longSkipThreshold) {
+        // Instant jump for long skips
+        this.targetWordIndex = matchResult.position;
+        // Reset speed for fresh start
+        this.currentSpeed = this.baseSpeed;
+      } else {
+        // Smooth scroll for short skips
+        this.targetWordIndex = matchResult.position;
+      }
+    } else {
+      // Normal incremental update
+      this.targetWordIndex = matchResult.position;
+    }
+
+    this.lastMatchTime = Date.now();
+    this.lastWordIndex = matchResult.position;
+    this.totalWords = this.totalWords || matchResult.position + 100; // Estimate if not set
+
+    if (!this.isScrolling) {
+      this.startScrolling();
+    }
+  }
+
+  // Exponential easing for smooth speed transitions
+  easeToward(current, target, deltaMs, timeConstant) {
+    const factor = 1 - Math.exp(-deltaMs / timeConstant);
+    return current + (target - current) * factor;
+  }
+
+  // Calculate target speed based on speaking pace (no speed cap)
+  calculatePaceBasedSpeed() {
+    if (this.totalWords === 0) return this.baseSpeed;
+
+    const maxScroll = this.container.scrollHeight - this.container.clientHeight;
+    const pixelsPerWord = maxScroll / this.totalWords;
+    const paceBasedSpeed = this.speakingPace * pixelsPerWord;
+
+    // No speed cap per CONTEXT.md
+    return Math.max(paceBasedSpeed, this.baseSpeed * 0.5);
+  }
+
   startScrolling() {
     if (this.isScrolling) return;
     this.isScrolling = true;
@@ -80,47 +231,60 @@ export class ScrollSync {
 
     const now = performance.now();
     const deltaTime = (now - this.lastFrameTime) / 1000; // seconds
+    const deltaMs = (now - this.lastFrameTime);
     this.lastFrameTime = now;
 
     const maxScroll = this.container.scrollHeight - this.container.clientHeight;
-    const targetScroll = (this.targetWordIndex / this.totalWords) * maxScroll;
     const currentScroll = this.container.scrollTop;
 
-    // How far past target are we? (positive = past target)
-    const overshootPixels = currentScroll - targetScroll;
+    // Calculate scroll boundary - never scroll past last matched position
+    const boundaryScroll = (this.lastMatchedPosition / this.totalWords) * maxScroll;
 
-    // Check if we should stop
-    const timeSinceLastMatch = Date.now() - this.lastMatchTime;
-    const isSpeechPaused = timeSinceLastMatch > this.overshootTime;
+    // Determine target speed based on state
+    let targetSpeed;
+    switch (this.scrollState) {
+      case ScrollState.CONFIDENT:
+        // Full speed based on speaking pace
+        targetSpeed = this.calculatePaceBasedSpeed();
+        this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant);
+        break;
 
-    if (isSpeechPaused) {
-      // Speech has paused - stop if we're at or past target
-      if (overshootPixels >= 0) {
-        this.stopScrolling();
-        return;
-      }
-      // Still behind target, keep going but slow down
-      this.currentSpeed *= 0.9;
-      if (this.currentSpeed < 10) {
-        this.stopScrolling();
-        return;
-      }
-    } else {
-      // Still speaking - adjust speed based on position
-      this.adjustSpeed(overshootPixels);
+      case ScrollState.UNCERTAIN:
+        // Slow down gradually
+        targetSpeed = this.baseSpeed * 0.3;
+        this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.decelerationTimeConstant);
+        break;
+
+      case ScrollState.OFF_SCRIPT:
+        // Coast to stop
+        this.currentSpeed = this.easeToward(this.currentSpeed, 0, deltaMs, this.decelerationTimeConstant);
+        if (this.currentSpeed < 1) {
+          this.currentSpeed = 0;
+        }
+        break;
     }
 
-    // Scroll
+    // Calculate new scroll position
     const pixelsToScroll = this.currentSpeed * deltaTime;
-    const newScrollTop = currentScroll + pixelsToScroll;
+    let newScrollTop = currentScroll + pixelsToScroll;
 
+    // CRITICAL: Never scroll past the boundary (last spoken position)
+    if (newScrollTop > boundaryScroll) {
+      newScrollTop = boundaryScroll;
+      // If we hit the boundary and we're off-script, stop
+      if (this.scrollState === ScrollState.OFF_SCRIPT) {
+        this.currentSpeed = 0;
+      }
+    }
+
+    // Clamp to valid range
     if (newScrollTop >= maxScroll) {
       this.container.scrollTop = maxScroll;
       this.stopScrolling();
       return;
     }
 
-    this.container.scrollTop = newScrollTop;
+    this.container.scrollTop = Math.max(0, newScrollTop);
 
     this.animationId = requestAnimationFrame(() => this.tick());
   }
@@ -159,7 +323,9 @@ export class ScrollSync {
       targetWordIndex: this.targetWordIndex,
       speakingPace: this.speakingPace.toFixed(1),
       currentSpeed: this.currentSpeed.toFixed(0),
-      isScrolling: this.isScrolling
+      isScrolling: this.isScrolling,
+      scrollState: this.scrollState,
+      lastMatchedPosition: this.lastMatchedPosition
     };
   }
 
@@ -175,5 +341,8 @@ export class ScrollSync {
     this.speakingPace = 0;
     this.currentSpeed = 0;
     this.totalWords = 0;
+    this.scrollState = ScrollState.CONFIDENT;
+    this.uncertainStartTime = null;
+    this.lastMatchedPosition = 0;
   }
 }
