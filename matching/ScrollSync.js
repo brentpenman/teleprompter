@@ -266,8 +266,8 @@ export class ScrollSync {
 
         // Adjust for position - speed up if behind, slow down if ahead
         if (overshootPixels < -50) {
-          // We're behind by 50+ pixels - speed up
-          const behindFactor = Math.min((-overshootPixels) / 100, 3);
+          // We're behind by 50+ pixels - speed up gradually (max 1.5x, not 4x)
+          const behindFactor = Math.min((-overshootPixels) / 200, 0.5);
           targetSpeed *= (1 + behindFactor);
         } else if (overshootPixels > 10) {
           // We're ahead by 10+ pixels - slow down significantly
@@ -275,7 +275,8 @@ export class ScrollSync {
         }
 
         this._lastTargetSpeed = targetSpeed;
-        this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant);
+        // Use longer time constant for smoother speed changes
+        this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant * 1.5);
         break;
 
       case ScrollState.UNCERTAIN:
