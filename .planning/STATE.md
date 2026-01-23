@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** The teleprompter follows YOU, not the other way around. It matches your natural speaking rhythm and handles the messiness of real speech.
-**Current focus:** Phase 3 - Basic Text Matching
+**Current focus:** Phase 4 - Intelligent Scroll Control
 
 ## Current Position
 
-Phase: 3 of 4 (Basic Text Matching)
-Plan: 2 of TBD in current phase
-Status: In progress
-Last activity: 2026-01-22 — Completed 03-02-PLAN.md
+Phase: 3 of 4 (Basic Text Matching) — COMPLETE
+Plan: 3 of 3 in current phase
+Status: Phase complete, ready for Phase 4
+Last activity: 2026-01-22 — Phase 3 complete, voice-to-scroll verified
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 1.7 minutes
-- Total execution time: 0.21 hours
+- Total plans completed: 9
+- Average duration: 2.5 minutes
+- Total execution time: 0.38 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [██████░░░░] 60%
 |-------|-------|-------|----------|
 | 01 | 3 | 5m | 1.6m |
 | 02 | 3 | 5.5m | 1.8m |
-| 03 | 2 | 4.1m | 2.0m |
+| 03 | 3 | 19m | 6.3m |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (1m), 02-03 (3m), 03-01 (2m), 03-02 (2.1m)
-- Trend: Consistent velocity
+- Last 5 plans: 02-03 (3m), 03-01 (2m), 03-02 (2.1m), 03-03 (15m with tuning)
+- Trend: Phase 3 required more iteration due to voice-scroll tuning
 
 *Updated after each plan completion*
 
@@ -66,6 +66,9 @@ Recent decisions affecting current work:
 - CSS Custom Highlight API for highlighting (03-02, zero-DOM-manipulation performance)
 - Phrase-level highlighting (3 words) not single word (03-02, better reading context)
 - Dim previous text to 50% opacity (03-02, visual feedback of progress)
+- Pace-based scrolling not position-jumping (03-03, smooth teleprompter feel)
+- Process interim results not just final (03-03, responsive feedback)
+- Position-based stopping (03-03, never scroll past matched phrase)
 
 ### Pending Todos
 
@@ -85,5 +88,15 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 03-02-PLAN.md (Text Highlighting)
+Stopped at: Completed Phase 3 (Basic Text Matching)
 Resume file: None
+
+### Tuning Notes for Future Sessions
+
+ScrollSync parameters that may need adjustment:
+- `baseSpeed`: 60 px/s (default scroll speed)
+- `overshootTime`: 500ms (time before stopping after speech pause)
+- `speakingPace` smoothing: 0.6/0.4 blend
+- Behind threshold: 50px before speeding up
+- Ahead threshold: 10px before slowing down
+- Speed multipliers in adjustSpeed()

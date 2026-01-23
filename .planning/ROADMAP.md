@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Display & Manual Control** - Broadcast-style teleprompter with manual scroll
 - [x] **Phase 2: Speech Recognition Foundation** - Reliable speech capture with error handling
-- [ ] **Phase 3: Basic Text Matching** - Match spoken words to script position
+- [x] **Phase 3: Basic Text Matching** - Match spoken words to script position
 - [ ] **Phase 4: Intelligent Scroll Control** - Confidence-based auto-scroll with pause detection
 
 ## Phase Details
@@ -63,9 +63,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — TextMatcher: Fuzzy matching engine with Fuse.js
-- [ ] 03-02-PLAN.md — Highlighter: CSS Custom Highlight API for visual feedback
-- [ ] 03-03-PLAN.md — Integration: Wire voice to matching to scroll
+- [x] 03-01-PLAN.md — TextMatcher: Fuzzy matching engine with Fuse.js
+- [x] 03-02-PLAN.md — Highlighter: CSS Custom Highlight API for visual feedback
+- [x] 03-03-PLAN.md — Integration: Wire voice to matching to scroll
 
 ### Phase 4: Intelligent Scroll Control
 **Goal**: App behaves like human operator - scrolling when confident, pausing when uncertain
@@ -91,5 +91,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Core Display & Manual Control | 3/3 | Complete | 2026-01-22 |
 | 2. Speech Recognition Foundation | 3/3 | Complete | 2026-01-22 |
-| 3. Basic Text Matching | 0/3 | Planned | - |
+| 3. Basic Text Matching | 3/3 | Complete | 2026-01-22 |
 | 4. Intelligent Scroll Control | 0/TBD | Not started | - |
