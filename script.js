@@ -411,7 +411,8 @@ function setupTuningControls() {
     'tune-ahead-thresh': 'aheadThreshold',
     'tune-accel-time': 'accelerationTimeConstant',
     'tune-decel-time': 'decelerationTimeConstant',
-    'tune-patient': 'patientThreshold'
+    'tune-patient': 'patientThreshold',
+    'tune-max-skip': 'maxForwardSkip'
   };
 
   for (const [inputId, param] of Object.entries(tuneInputs)) {

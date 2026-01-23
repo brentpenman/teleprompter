@@ -54,6 +54,7 @@ export class ScrollSync {
     // Skip detection
     this.shortSkipThreshold = 20;  // words - below this, smooth scroll
     this.longSkipThreshold = 100;  // words - above this, instant jump
+    this.maxForwardSkip = options.maxForwardSkip || 50;  // max words to skip forward
     this.forwardSkipConfidence = 0.85;
     this.backwardSkipConfidence = 0.92;
 
@@ -177,6 +178,12 @@ export class ScrollSync {
 
     // Check if this is a significant skip
     if (absDistance > 5) { // More than 5 words difference
+      // Reject huge forward skips (likely false positive from repeated phrases)
+      if (isForward && absDistance > this.maxForwardSkip) {
+        console.log(`[Scroll] Rejecting forward skip of ${absDistance} words (max: ${this.maxForwardSkip})`);
+        return; // Don't update position
+      }
+
       const requiredConfidence = isForward
         ? this.forwardSkipConfidence
         : this.backwardSkipConfidence;
@@ -360,6 +367,7 @@ export class ScrollSync {
     if (params.accelerationTimeConstant !== undefined) this.accelerationTimeConstant = params.accelerationTimeConstant;
     if (params.decelerationTimeConstant !== undefined) this.decelerationTimeConstant = params.decelerationTimeConstant;
     if (params.patientThreshold !== undefined) this.patientThreshold = params.patientThreshold;
+    if (params.maxForwardSkip !== undefined) this.maxForwardSkip = params.maxForwardSkip;
   }
 
   // Get state for debugging
