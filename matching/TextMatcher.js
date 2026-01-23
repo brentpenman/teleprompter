@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js';
 import { tokenize, filterFillerWords, isFillerWord } from './textUtils.js';
+import { ConfidenceCalculator } from './ConfidenceLevel.js';
 
 export class TextMatcher {
   constructor(scriptText, options = {}) {
@@ -29,6 +30,9 @@ export class TextMatcher {
     this.spokenBuffer = [];  // Recent spoken words
     this.currentPosition = 0;  // Current match position in script
     this.lastMatchTime = 0;
+
+    // Confidence calculator for match quality scoring
+    this.confidenceCalculator = new ConfidenceCalculator();
   }
 
   // Add a spoken word and try to find match
@@ -119,6 +123,102 @@ export class TextMatcher {
       return matchEnd;
     }
 
+    return null;
+  }
+
+  // Match transcript and return confidence data
+  // Returns object with position, confidence, level, and match metadata
+  getMatchWithConfidence(transcript) {
+    const words = tokenize(transcript);
+    const filtered = filterFillerWords(words);
+
+    if (filtered.length < this.minConsecutiveMatches) {
+      return { position: null, confidence: null, level: 'low' };
+    }
+
+    // Use the last windowSize words for matching
+    const window = filtered.slice(-this.windowSize);
+
+    // Search forward from current position first
+    const result = this.searchRangeWithScore(this.currentPosition, this.scriptWords.length, window);
+    if (result) {
+      const matchEnd = result.startIndex + window.length - 1;
+      if (matchEnd >= this.currentPosition) {
+        this.currentPosition = matchEnd;
+        this.lastMatchTime = Date.now();
+
+        const msSinceLastMatch = 0; // Just matched now
+        const rawConfidence = this.confidenceCalculator.calculate(
+          result.avgScore, result.matchCount, window.length, msSinceLastMatch
+        );
+
+        return {
+          position: matchEnd,
+          confidence: rawConfidence,
+          level: this.confidenceCalculator.toLevel(rawConfidence),
+          matchCount: result.matchCount,
+          windowSize: window.length
+        };
+      }
+    }
+
+    // Search backward for intentional skip-back
+    const jumpThreshold = 10;
+    const backResult = this.searchRangeWithScore(0, Math.max(0, this.currentPosition - jumpThreshold), window);
+    if (backResult) {
+      const matchEnd = backResult.startIndex + window.length - 1;
+      this.currentPosition = matchEnd;
+      this.lastMatchTime = Date.now();
+
+      const rawConfidence = this.confidenceCalculator.calculate(
+        backResult.avgScore, backResult.matchCount, window.length, 0
+      );
+
+      return {
+        position: matchEnd,
+        confidence: rawConfidence,
+        level: this.confidenceCalculator.toLevel(rawConfidence),
+        matchCount: backResult.matchCount,
+        windowSize: window.length,
+        isBackwardSkip: true
+      };
+    }
+
+    // No match found - return low confidence based on time since last match
+    const msSinceLastMatch = Date.now() - this.lastMatchTime;
+    const rawConfidence = this.confidenceCalculator.calculate(1, 0, window.length, msSinceLastMatch);
+
+    return {
+      position: null,
+      confidence: rawConfidence,
+      level: this.confidenceCalculator.toLevel(rawConfidence)
+    };
+  }
+
+  // Search range and return score data for confidence calculation
+  searchRangeWithScore(start, end, window) {
+    for (let i = start; i < end - window.length + 1; i++) {
+      let matchCount = 0;
+      let totalScore = 0;
+
+      for (let j = 0; j < window.length; j++) {
+        const results = this.fuse.search(window[j]);
+        const match = results.find(r => r.item.index === i + j && r.score <= this.threshold);
+
+        if (match) {
+          matchCount++;
+          totalScore += match.score;
+        }
+      }
+
+      if (matchCount >= this.minConsecutiveMatches) {
+        return {
+          startIndex: i,
+          matchCount: matchCount,
+          avgScore: matchCount > 0 ? totalScore / matchCount : 1
+        };
+      }
+    }
     return null;
   }
 
