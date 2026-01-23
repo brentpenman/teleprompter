@@ -12,16 +12,16 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 Phase: 4 of 4 (Intelligent Scroll Control)
 Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-23 — Completed 04-02-PLAN.md (remove dimming)
+Last activity: 2026-01-23 — Completed 04-01-PLAN.md (confidence scoring)
 
 Progress: [████████░░] 82%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 2.3 minutes
-- Total execution time: 0.40 hours
+- Total plans completed: 11
+- Average duration: 2.4 minutes
+- Total execution time: 0.43 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [████████░░] 82%
 | 01 | 3 | 5m | 1.6m |
 | 02 | 3 | 5.5m | 1.8m |
 | 03 | 3 | 19m | 6.3m |
-| 04 | 2 | 1m | 0.5m |
+| 04 | 2 | 2.5m | 1.25m |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (2m), 03-02 (2.1m), 03-03 (15m with tuning), 04-02 (1m)
-- Trend: Phase 4 plan 02 was a simple simplification task
+- Last 5 plans: 03-01 (2m), 03-02 (2.1m), 03-03 (15m with tuning), 04-02 (1m), 04-01 (1.5m)
+- Trend: Phase 4 plans executing quickly (confidence scoring took 1.5 min)
 
 *Updated after each plan completion*
 
@@ -71,6 +71,9 @@ Recent decisions affecting current work:
 - Pace-based scrolling not position-jumping (03-03, smooth teleprompter feel)
 - Process interim results not just final (03-03, responsive feedback)
 - Position-based stopping (03-03, never scroll past matched phrase)
+- Three confidence levels high/medium/low (04-01, visual clarity)
+- Opacity modulation: high=1.0, medium=0.6, low=0.3 (04-01, brightness feedback)
+- Smooth opacity transitions with 0.1 blend factor (04-01, gradual visual change)
 
 ### Pending Todos
 
@@ -90,7 +93,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Completed 04-02-PLAN.md (remove dimming)
+Stopped at: Completed 04-01-PLAN.md (confidence scoring and visualizer opacity)
 Resume file: None
 
 ### Tuning Notes for Future Sessions
