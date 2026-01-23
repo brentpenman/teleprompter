@@ -250,24 +250,25 @@ async function enableVoiceMode() {
       onTranscript: (text, isFinal) => {
         console.log(`[Voice] ${isFinal ? 'FINAL' : 'interim'}: ${text}`);
 
-        // Process transcript through matcher
-        if (textMatcher) {
-          // For interim results, match the last few words directly
-          // (interim transcripts are cumulative, so we use the tail)
-          const match = textMatcher.matchTranscript(text);
-          if (match !== null) {
-            console.log(`[Matching] Position: ${match}/${textMatcher.scriptWords.length}`);
+        if (textMatcher && scrollSync) {
+          // Use confidence-aware matching
+          const result = textMatcher.getMatchWithConfidence(text);
 
-            // Update scroll position
-            if (scrollSync) {
-              scrollSync.scrollToWordIndex(match, textMatcher.scriptWords.length);
-            }
+          // Update scroll state machine
+          const newState = scrollSync.updateConfidence(result);
 
-            // Update highlight
-            if (highlighter) {
-              highlighter.highlightPosition(match, textMatcher.scriptWords);
-            }
+          // Update visual confidence indicator
+          if (audioVisualizer) {
+            audioVisualizer.setConfidenceLevel(result.level);
           }
+
+          // Update highlight if we have a position
+          if (result.position !== null && highlighter) {
+            highlighter.highlightPosition(result.position, textMatcher.scriptWords);
+          }
+
+          // Debug logging
+          console.log(`[Matching] Position: ${result.position}, Confidence: ${result.level} (${(result.confidence * 100).toFixed(0)}%), State: ${newState}`);
         }
       },
       onError: (errorType, isFatal) => {
@@ -391,8 +392,17 @@ async function initMatchingSystem(scriptText) {
   });
 
   scrollSync = new ScrollSync(teleprompterContainer, teleprompterText, {
-    scrollDuration: 300
+    baseSpeed: 60,
+    onStateChange: (newState, prevState) => {
+      console.log(`[Scroll] State: ${prevState} -> ${newState}`);
+    },
+    onConfidenceChange: (level, confidence) => {
+      // Confidence change is handled in onTranscript already
+    }
   });
+
+  // Set total words on scrollSync for boundary calculations
+  scrollSync.totalWords = textMatcher.scriptWords.length;
 
   console.log('[Matching] System initialized with', textMatcher.scriptWords.length, 'words');
 }
@@ -508,6 +518,11 @@ function switchMode(newMode) {
     }
     if (scrollSync) {
       scrollSync.reset();
+    }
+
+    // Reset confidence indicator to default
+    if (audioVisualizer) {
+      audioVisualizer.setConfidenceLevel('high');
     }
 
     // Switch views
