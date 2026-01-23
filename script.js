@@ -368,6 +368,32 @@ function updateDebugOverlay() {
   document.getElementById('debug-state').textContent = s.scrollState;
 }
 
+function setupTuningControls() {
+  const tuneInputs = {
+    'tune-base-speed': 'baseSpeed',
+    'tune-behind-max': 'behindMax',
+    'tune-behind-thresh': 'behindThreshold',
+    'tune-ahead-thresh': 'aheadThreshold',
+    'tune-accel-time': 'accelerationTimeConstant',
+    'tune-decel-time': 'decelerationTimeConstant',
+    'tune-patient': 'patientThreshold'
+  };
+
+  for (const [inputId, param] of Object.entries(tuneInputs)) {
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.addEventListener('input', () => {
+        if (!scrollSync) return;
+        let value = parseFloat(input.value);
+        // Convert patient threshold from seconds to ms
+        if (param === 'patientThreshold') value *= 1000;
+        scrollSync.setTuning({ [param]: value });
+        console.log(`[Tuning] ${param} = ${value}`);
+      });
+    }
+  }
+}
+
 function updateVoiceIndicator() {
   if (!audioVisualizer) return;
 
@@ -612,6 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSpeedDisplay();
   updateSizeDisplay();
   updateHighlightButton();
+  setupTuningControls();
 
   // Event listeners - Editor
   startButton.addEventListener('click', () => {

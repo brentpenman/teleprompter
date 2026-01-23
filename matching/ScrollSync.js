@@ -42,9 +42,14 @@ export class ScrollSync {
     this.patientThreshold = options.patientThreshold || 4000; // 4 seconds before off-script
 
     // Easing time constants (ms)
-    this.accelerationTimeConstant = 1500;
-    this.decelerationTimeConstant = 500;
-    this.resumeTimeConstant = 1000;
+    this.accelerationTimeConstant = options.accelerationTimeConstant || 1500;
+    this.decelerationTimeConstant = options.decelerationTimeConstant || 500;
+    this.resumeTimeConstant = options.resumeTimeConstant || 1000;
+
+    // Position-based speed adjustment thresholds
+    this.behindThreshold = options.behindThreshold || 50;  // pixels behind before speedup
+    this.aheadThreshold = options.aheadThreshold || 10;    // pixels ahead before slowdown
+    this.behindMax = options.behindMax || 0.5;             // max multiplier addition when behind
 
     // Skip detection
     this.shortSkipThreshold = 20;  // words - below this, smooth scroll
@@ -265,18 +270,17 @@ export class ScrollSync {
         targetSpeed = this.calculatePaceBasedSpeed();
 
         // Adjust for position - speed up if behind, slow down if ahead
-        if (overshootPixels < -50) {
-          // We're behind by 50+ pixels - speed up gradually (max 1.5x, not 4x)
-          const behindFactor = Math.min((-overshootPixels) / 200, 0.5);
+        if (overshootPixels < -this.behindThreshold) {
+          // We're behind - speed up gradually
+          const behindFactor = Math.min((-overshootPixels) / (this.behindThreshold * 4), this.behindMax);
           targetSpeed *= (1 + behindFactor);
-        } else if (overshootPixels > 10) {
-          // We're ahead by 10+ pixels - slow down significantly
-          targetSpeed *= Math.max(0.1, 1 - (overshootPixels / 50));
+        } else if (overshootPixels > this.aheadThreshold) {
+          // We're ahead - slow down significantly
+          targetSpeed *= Math.max(0.1, 1 - (overshootPixels / (this.aheadThreshold * 5)));
         }
 
         this._lastTargetSpeed = targetSpeed;
-        // Use longer time constant for smoother speed changes
-        this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant * 1.5);
+        this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant);
         break;
 
       case ScrollState.UNCERTAIN:
@@ -345,6 +349,17 @@ export class ScrollSync {
 
     // Smooth speed changes
     this.currentSpeed = this.currentSpeed * 0.85 + targetSpeed * 0.15;
+  }
+
+  // Set tuning parameters at runtime
+  setTuning(params) {
+    if (params.baseSpeed !== undefined) this.baseSpeed = params.baseSpeed;
+    if (params.behindMax !== undefined) this.behindMax = params.behindMax;
+    if (params.behindThreshold !== undefined) this.behindThreshold = params.behindThreshold;
+    if (params.aheadThreshold !== undefined) this.aheadThreshold = params.aheadThreshold;
+    if (params.accelerationTimeConstant !== undefined) this.accelerationTimeConstant = params.accelerationTimeConstant;
+    if (params.decelerationTimeConstant !== undefined) this.decelerationTimeConstant = params.decelerationTimeConstant;
+    if (params.patientThreshold !== undefined) this.patientThreshold = params.patientThreshold;
   }
 
   // Get state for debugging
