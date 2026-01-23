@@ -151,11 +151,24 @@ export class ScrollSync {
     return this.scrollState;
   }
 
-  // Handle a confident match - includes skip detection
+  // Handle a confident match - includes skip detection and pace calculation
   handleMatch(matchResult) {
+    const now = Date.now();
     const distance = matchResult.position - this.targetWordIndex;
     const absDistance = Math.abs(distance);
     const isForward = distance > 0;
+
+    // Calculate speaking pace before skip detection
+    if (this.lastMatchTime > 0 && matchResult.position > this.lastWordIndex) {
+      const timeDelta = (now - this.lastMatchTime) / 1000; // seconds
+      const wordsDelta = matchResult.position - this.lastWordIndex;
+
+      if (timeDelta > 0 && timeDelta < 5) { // Ignore long gaps
+        const instantPace = wordsDelta / timeDelta;
+        // Smooth the pace calculation
+        this.speakingPace = this.speakingPace * 0.6 + instantPace * 0.4;
+      }
+    }
 
     // Check if this is a significant skip
     if (absDistance > 5) { // More than 5 words difference
@@ -183,7 +196,7 @@ export class ScrollSync {
       this.targetWordIndex = matchResult.position;
     }
 
-    this.lastMatchTime = Date.now();
+    this.lastMatchTime = now;
     this.lastWordIndex = matchResult.position;
     this.totalWords = this.totalWords || matchResult.position + 100; // Estimate if not set
 
