@@ -49,16 +49,6 @@ export class Highlighter {
 
       const currentHighlight = new Highlight(phraseRange);
       CSS.highlights.set('current-match', currentHighlight);
-
-      // Highlight previously read text (dimmed)
-      if (startWord > 0) {
-        const previousRange = new Range();
-        previousRange.setStart(textNode, 0);
-        previousRange.setEnd(textNode, positions[startWord - 1].end);
-
-        const previousHighlight = new Highlight(previousRange);
-        CSS.highlights.set('previous-match', previousHighlight);
-      }
     } catch (err) {
       console.error('Highlight error:', err);
     }
@@ -121,7 +111,6 @@ export class Highlighter {
   clear() {
     if (this.supported) {
       CSS.highlights.delete('current-match');
-      CSS.highlights.delete('previous-match');
     }
   }
 
