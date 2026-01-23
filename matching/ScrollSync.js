@@ -39,23 +39,23 @@ export class ScrollSync {
     // State machine
     this.scrollState = ScrollState.CONFIDENT;
     this.uncertainStartTime = null;
-    this.patientThreshold = options.patientThreshold || 4000; // 4 seconds before off-script
-    this.silenceThreshold = options.silenceThreshold || 2000; // 2 seconds of no speech -> uncertain
+    this.patientThreshold = options.patientThreshold || 500; // 0.5 seconds before off-script
+    this.silenceThreshold = options.silenceThreshold || 500; // 0.5 seconds of no speech -> uncertain
 
     // Easing time constants (ms)
-    this.accelerationTimeConstant = options.accelerationTimeConstant || 1500;
+    this.accelerationTimeConstant = options.accelerationTimeConstant || 500;
     this.decelerationTimeConstant = options.decelerationTimeConstant || 500;
-    this.resumeTimeConstant = options.resumeTimeConstant || 1000;
+    this.resumeTimeConstant = options.resumeTimeConstant || 500;
 
     // Position-based speed adjustment thresholds
-    this.behindThreshold = options.behindThreshold || 50;  // pixels behind before speedup
-    this.aheadThreshold = options.aheadThreshold || 10;    // pixels ahead before slowdown
-    this.behindMax = options.behindMax || 0.5;             // max multiplier addition when behind
+    this.behindThreshold = options.behindThreshold || 200;  // pixels behind before speedup
+    this.aheadThreshold = options.aheadThreshold || 100;    // pixels ahead before slowdown
+    this.behindMax = options.behindMax || 0;                // max multiplier addition when behind (0 = disabled)
 
     // Skip detection
     this.shortSkipThreshold = 20;  // words - below this, smooth scroll
     this.longSkipThreshold = 100;  // words - above this, instant jump
-    this.maxForwardSkip = options.maxForwardSkip || 50;  // max words to skip forward
+    this.maxSkip = options.maxSkip || 10;  // max words to skip in either direction
     this.forwardSkipConfidence = 0.85;
     this.backwardSkipConfidence = 0.92;
 
@@ -111,9 +111,10 @@ export class ScrollSync {
       const absDistance = Math.abs(distance);
       const isForward = distance > 0;
 
-      if (absDistance > 5 && isForward && absDistance > this.maxForwardSkip) {
-        // Reject this position - too large a forward skip
-        console.log(`[Scroll] Rejecting forward skip of ${absDistance} words (max: ${this.maxForwardSkip})`);
+      if (absDistance > 5 && absDistance > this.maxSkip) {
+        // Reject this position - too large a skip in either direction
+        const direction = isForward ? 'forward' : 'backward';
+        console.log(`[Scroll] Rejecting ${direction} skip of ${absDistance} words (max: ${this.maxSkip})`);
         // Treat as if no position was found
         matchResult = { ...matchResult, position: null, level: 'low' };
       }
@@ -397,7 +398,7 @@ export class ScrollSync {
     if (params.accelerationTimeConstant !== undefined) this.accelerationTimeConstant = params.accelerationTimeConstant;
     if (params.decelerationTimeConstant !== undefined) this.decelerationTimeConstant = params.decelerationTimeConstant;
     if (params.patientThreshold !== undefined) this.patientThreshold = params.patientThreshold;
-    if (params.maxForwardSkip !== undefined) this.maxForwardSkip = params.maxForwardSkip;
+    if (params.maxSkip !== undefined) this.maxSkip = params.maxSkip;
     if (params.silenceThreshold !== undefined) this.silenceThreshold = params.silenceThreshold;
   }
 

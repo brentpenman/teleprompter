@@ -412,7 +412,7 @@ function setupTuningControls() {
     'tune-accel-time': 'accelerationTimeConstant',
     'tune-decel-time': 'decelerationTimeConstant',
     'tune-patient': 'patientThreshold',
-    'tune-max-skip': 'maxForwardSkip',
+    'tune-max-skip': 'maxSkip',
     'tune-silence': 'silenceThreshold'
   };
 
