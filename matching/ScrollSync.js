@@ -82,24 +82,37 @@ export class ScrollSync {
     const deltaTime = (now - this.lastFrameTime) / 1000; // seconds
     this.lastFrameTime = now;
 
-    // Check if we should stop (no speech for overshootTime)
+    const maxScroll = this.container.scrollHeight - this.container.clientHeight;
+    const targetScroll = (this.targetWordIndex / this.totalWords) * maxScroll;
+    const currentScroll = this.container.scrollTop;
+
+    // How far past target are we? (positive = past target)
+    const overshootPixels = currentScroll - targetScroll;
+
+    // Check if we should stop
     const timeSinceLastMatch = Date.now() - this.lastMatchTime;
-    if (timeSinceLastMatch > this.overshootTime) {
-      // Quickly slow down and stop
-      this.currentSpeed *= 0.85;
+    const isSpeechPaused = timeSinceLastMatch > this.overshootTime;
+
+    if (isSpeechPaused) {
+      // Speech has paused - stop if we're at or past target
+      if (overshootPixels >= 0) {
+        this.stopScrolling();
+        return;
+      }
+      // Still behind target, keep going but slow down
+      this.currentSpeed *= 0.9;
       if (this.currentSpeed < 10) {
         this.stopScrolling();
         return;
       }
     } else {
-      // Adjust speed based on position relative to target
-      this.adjustSpeed();
+      // Still speaking - adjust speed based on position
+      this.adjustSpeed(overshootPixels);
     }
 
     // Scroll
     const pixelsToScroll = this.currentSpeed * deltaTime;
-    const newScrollTop = this.container.scrollTop + pixelsToScroll;
-    const maxScroll = this.container.scrollHeight - this.container.clientHeight;
+    const newScrollTop = currentScroll + pixelsToScroll;
 
     if (newScrollTop >= maxScroll) {
       this.container.scrollTop = maxScroll;
@@ -112,41 +125,32 @@ export class ScrollSync {
     this.animationId = requestAnimationFrame(() => this.tick());
   }
 
-  adjustSpeed() {
+  adjustSpeed(overshootPixels) {
     if (this.totalWords === 0) return;
 
-    // Where we are vs where we should be
-    const currentScrollFraction = this.container.scrollTop /
-      (this.container.scrollHeight - this.container.clientHeight);
-    const targetScrollFraction = this.targetWordIndex / this.totalWords;
-
-    // How far behind/ahead we are (positive = behind, need to speed up)
-    const gap = targetScrollFraction - currentScrollFraction;
-
     // Calculate target speed based on speaking pace
-    // Estimate: average word is ~5 characters, line is ~60 chars,
-    // so roughly 12 words per line. Adjust based on font size.
-    const pixelsPerWord = (this.container.scrollHeight - this.container.clientHeight) / this.totalWords;
+    const maxScroll = this.container.scrollHeight - this.container.clientHeight;
+    const pixelsPerWord = maxScroll / this.totalWords;
     const paceBasedSpeed = this.speakingPace * pixelsPerWord;
 
     // Base speed is either pace-based or minimum base speed
     let targetSpeed = Math.max(paceBasedSpeed, this.baseSpeed * 0.5);
 
-    // Adjust for gap - speed up if behind, slow down if ahead
-    if (gap > 0.01) {
-      // We're behind - speed up proportionally
-      targetSpeed *= (1 + gap * 8);
-    } else if (gap < -0.01) {
-      // We're ahead - slow down aggressively
-      // gap of -0.05 means we're 5% ahead, should slow to ~25% speed
-      targetSpeed *= Math.max(0.15, 1 + gap * 10);
+    // Adjust for position - speed up if behind, slow down if ahead
+    if (overshootPixels < -50) {
+      // We're behind by 50+ pixels - speed up
+      const behindFactor = Math.min((-overshootPixels) / 100, 3);
+      targetSpeed *= (1 + behindFactor);
+    } else if (overshootPixels > 10) {
+      // We're ahead by 10+ pixels - slow down significantly
+      targetSpeed *= Math.max(0.1, 1 - (overshootPixels / 50));
     }
 
     // Clamp speed to reasonable range
-    targetSpeed = Math.max(10, Math.min(targetSpeed, this.baseSpeed * 4));
+    targetSpeed = Math.max(5, Math.min(targetSpeed, this.baseSpeed * 4));
 
     // Smooth speed changes
-    this.currentSpeed = this.currentSpeed * 0.9 + targetSpeed * 0.1;
+    this.currentSpeed = this.currentSpeed * 0.85 + targetSpeed * 0.15;
   }
 
   // Get state for debugging
