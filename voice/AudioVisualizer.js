@@ -19,6 +19,8 @@ class AudioVisualizer {
 
     // State
     this.isError = false;
+    this.confidenceLevel = 'high';  // 'high', 'medium', or 'low'
+    this.currentOpacity = 1.0;      // For smooth transitions
 
     // Colors
     this.normalColor = '#22c55e';  // Green
@@ -70,6 +72,16 @@ class AudioVisualizer {
     // Clear canvas with transparent background
     this.ctx.clearRect(0, 0, width, height);
 
+    // Calculate target opacity based on confidence level
+    const opacityMap = { high: 1.0, medium: 0.6, low: 0.3 };
+    const targetOpacity = opacityMap[this.confidenceLevel] ?? 1.0;
+
+    // Smooth transition to target opacity
+    this.currentOpacity += (targetOpacity - this.currentOpacity) * 0.1;
+
+    // Apply opacity for confidence visualization
+    this.ctx.globalAlpha = this.currentOpacity;
+
     // Configuration for bars
     const barCount = 10;
     const barGap = 2;
@@ -99,6 +111,9 @@ class AudioVisualizer {
       // Draw rounded bar
       this.roundRect(x, y, barWidth, barHeight, borderRadius);
     }
+
+    // Reset globalAlpha to avoid affecting other canvas operations
+    this.ctx.globalAlpha = 1.0;
   }
 
   /**
@@ -151,6 +166,8 @@ class AudioVisualizer {
     this.source = null;
     this.dataArray = null;
     this.isError = false;
+    this.confidenceLevel = 'high';
+    this.currentOpacity = 1.0;
   }
 
   /**
@@ -160,5 +177,14 @@ class AudioVisualizer {
   setErrorState(isError) {
     this.isError = isError;
     // Color will update automatically on next frame
+  }
+
+  /**
+   * Set confidence level - changes bar brightness
+   * @param {'high' | 'medium' | 'low'} level - Confidence level
+   */
+  setConfidenceLevel(level) {
+    this.confidenceLevel = level;
+    // Opacity will transition smoothly in draw()
   }
 }
