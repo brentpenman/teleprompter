@@ -1,114 +1,154 @@
 // Scroll synchronization module
-// Scrolls teleprompter to keep matched position at reading marker
+// Smoothly scrolls teleprompter to follow voice position
 
 export class ScrollSync {
   constructor(containerElement, textElement, options = {}) {
     this.container = containerElement;
     this.textElement = textElement;
 
-    // Animation timing from CONTEXT.md: 200-500ms smooth animation
-    this.scrollDuration = options.scrollDuration || 300;
+    // Tolerance: how many words ahead/behind before we consider it a "jump"
+    this.jumpThreshold = options.jumpThreshold || 20;
 
-    // Track speaking pace for adaptive scroll
-    this.lastScrollTime = 0;
-    this.lastPosition = 0;
-    this.speakingPace = 0;  // words per second
+    // Smooth follow speed (pixels per frame at 60fps)
+    this.baseScrollSpeed = options.baseScrollSpeed || 3;
 
-    // For cancelling in-progress scrolls
-    this.scrollAnimationId = null;
+    // Target tracking
+    this.targetWordIndex = 0;
+    this.targetScrollTop = 0;
+    this.totalWords = 0;
+
+    // Animation loop
+    this.animationId = null;
+    this.isFollowing = false;
+
+    // Track last position for jump detection
+    this.lastWordIndex = 0;
   }
 
-  // Scroll to word position in script
+  // Update target position based on matched word
   scrollToWordIndex(wordIndex, totalWords) {
     if (wordIndex < 0 || totalWords <= 0) return;
 
-    // Calculate progress through script (0 to 1)
-    const progress = wordIndex / totalWords;
+    this.totalWords = totalWords;
 
     // Calculate target scroll position
-    // Total scrollable distance = scrollHeight - clientHeight
+    const progress = wordIndex / totalWords;
     const maxScroll = this.container.scrollHeight - this.container.clientHeight;
-    const targetScroll = Math.round(progress * maxScroll);
+    this.targetScrollTop = Math.round(progress * maxScroll);
 
-    // Track pace for future adaptive scrolling
-    this.updateSpeakingPace(wordIndex);
+    // Detect if this is a jump (user skipped around)
+    const wordDelta = Math.abs(wordIndex - this.lastWordIndex);
+    const isJump = wordDelta > this.jumpThreshold;
 
-    // Smooth scroll to position
-    this.smoothScrollTo(targetScroll);
+    this.lastWordIndex = wordIndex;
+    this.targetWordIndex = wordIndex;
+
+    if (isJump) {
+      // User skipped - do a quick animated jump
+      this.jumpTo(this.targetScrollTop);
+    } else {
+      // Normal progression - start/continue smooth following
+      if (!this.isFollowing) {
+        this.startFollowing();
+      }
+    }
   }
 
-  // Smooth scroll animation using native scroll-behavior
-  smoothScrollTo(targetTop) {
-    // Cancel any in-progress animation
-    if (this.scrollAnimationId) {
-      cancelAnimationFrame(this.scrollAnimationId);
-    }
+  // Quick animated jump for when user skips around
+  jumpTo(targetTop) {
+    this.stopFollowing();
 
     const startTop = this.container.scrollTop;
     const distance = targetTop - startTop;
 
-    // Skip if already at target or very small movement
     if (Math.abs(distance) < 5) return;
 
     const startTime = performance.now();
-    const duration = this.scrollDuration;
+    const duration = 400; // Quick but smooth jump
 
     const animate = (currentTime) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Ease-out cubic for smooth deceleration
+      // Ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
 
       this.container.scrollTop = startTop + (distance * eased);
 
       if (progress < 1) {
-        this.scrollAnimationId = requestAnimationFrame(animate);
+        this.animationId = requestAnimationFrame(animate);
       } else {
-        this.scrollAnimationId = null;
+        this.animationId = null;
+        // Resume following after jump completes
+        this.startFollowing();
       }
     };
 
-    this.scrollAnimationId = requestAnimationFrame(animate);
+    this.animationId = requestAnimationFrame(animate);
   }
 
-  // Track speaking pace for adaptive behavior (Phase 4)
-  updateSpeakingPace(wordIndex) {
-    const now = Date.now();
+  // Start the smooth following animation loop
+  startFollowing() {
+    if (this.isFollowing) return;
+    this.isFollowing = true;
+    this.follow();
+  }
 
-    if (this.lastScrollTime > 0) {
-      const timeDelta = (now - this.lastScrollTime) / 1000;  // seconds
-      const wordsDelta = wordIndex - this.lastPosition;
+  // Stop following
+  stopFollowing() {
+    this.isFollowing = false;
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+  }
 
-      if (timeDelta > 0 && wordsDelta > 0) {
-        // Smoothed pace calculation
-        const instantPace = wordsDelta / timeDelta;
-        this.speakingPace = this.speakingPace * 0.7 + instantPace * 0.3;
-      }
+  // Smooth following loop - gradually moves toward target
+  follow() {
+    if (!this.isFollowing) return;
+
+    const currentTop = this.container.scrollTop;
+    const distance = this.targetScrollTop - currentTop;
+
+    // If we're close enough, just stay here
+    if (Math.abs(distance) < 2) {
+      this.animationId = requestAnimationFrame(() => this.follow());
+      return;
     }
 
-    this.lastScrollTime = now;
-    this.lastPosition = wordIndex;
+    // Calculate scroll speed based on how far behind we are
+    // Faster catch-up if we're further behind
+    const catchUpFactor = Math.min(Math.abs(distance) / 100, 3);
+    const speed = this.baseScrollSpeed * (1 + catchUpFactor);
+
+    // Move toward target
+    const step = Math.sign(distance) * Math.min(speed, Math.abs(distance));
+    this.container.scrollTop = currentTop + step;
+
+    this.animationId = requestAnimationFrame(() => this.follow());
   }
 
-  // Get current speaking pace (for future confidence/speed logic)
-  getSpeakingPace() {
-    return this.speakingPace;
+  // Get current state for debugging
+  getState() {
+    return {
+      targetWordIndex: this.targetWordIndex,
+      targetScrollTop: this.targetScrollTop,
+      currentScrollTop: this.container.scrollTop,
+      isFollowing: this.isFollowing
+    };
   }
 
-  // Stop any in-progress scroll animation
+  // Stop animation
   stop() {
-    if (this.scrollAnimationId) {
-      cancelAnimationFrame(this.scrollAnimationId);
-      this.scrollAnimationId = null;
-    }
+    this.stopFollowing();
   }
 
-  // Reset state (e.g., when script changes)
+  // Reset state
   reset() {
     this.stop();
-    this.lastScrollTime = 0;
-    this.lastPosition = 0;
-    this.speakingPace = 0;
+    this.targetWordIndex = 0;
+    this.targetScrollTop = 0;
+    this.lastWordIndex = 0;
+    this.totalWords = 0;
   }
 }
