@@ -240,12 +240,27 @@ export class ScrollSync {
     // Calculate scroll boundary - never scroll past last matched position
     const boundaryScroll = (this.lastMatchedPosition / this.totalWords) * maxScroll;
 
+    // Calculate target scroll position and overshoot
+    const targetScroll = (this.targetWordIndex / this.totalWords) * maxScroll;
+    const overshootPixels = currentScroll - targetScroll; // positive = ahead, negative = behind
+
     // Determine target speed based on state
     let targetSpeed;
     switch (this.scrollState) {
       case ScrollState.CONFIDENT:
-        // Full speed based on speaking pace
+        // Base speed from speaking pace
         targetSpeed = this.calculatePaceBasedSpeed();
+
+        // Adjust for position - speed up if behind, slow down if ahead
+        if (overshootPixels < -50) {
+          // We're behind by 50+ pixels - speed up
+          const behindFactor = Math.min((-overshootPixels) / 100, 3);
+          targetSpeed *= (1 + behindFactor);
+        } else if (overshootPixels > 10) {
+          // We're ahead by 10+ pixels - slow down significantly
+          targetSpeed *= Math.max(0.1, 1 - (overshootPixels / 50));
+        }
+
         this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant);
         break;
 
