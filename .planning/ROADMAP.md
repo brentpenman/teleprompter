@@ -77,19 +77,22 @@ Plans:
   3. User skips ahead in script and app jumps to new position
   4. User can see visual confidence indicator showing how certain the match is
   5. Scrolling is smooth and natural, not jumpy or erratic
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] TBD (to be created during `/gsd:plan-phase 4`)
+- [ ] 04-01-PLAN.md — Confidence calculator and AudioVisualizer confidence display
+- [ ] 04-02-PLAN.md — Remove Highlighter dimming
+- [ ] 04-03-PLAN.md — TextMatcher confidence + ScrollSync state machine
+- [ ] 04-04-PLAN.md — Integration and human verification
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Display & Manual Control | 3/3 | Complete | 2026-01-22 |
 | 2. Speech Recognition Foundation | 3/3 | Complete | 2026-01-22 |
 | 3. Basic Text Matching | 3/3 | Complete | 2026-01-22 |
-| 4. Intelligent Scroll Control | 0/TBD | Not started | - |
+| 4. Intelligent Scroll Control | 0/4 | Not started | - |
