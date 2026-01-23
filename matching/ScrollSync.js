@@ -261,6 +261,7 @@ export class ScrollSync {
           targetSpeed *= Math.max(0.1, 1 - (overshootPixels / 50));
         }
 
+        this._lastTargetSpeed = targetSpeed;
         this.currentSpeed = this.easeToward(this.currentSpeed, targetSpeed, deltaMs, this.accelerationTimeConstant);
         break;
 
@@ -338,9 +339,11 @@ export class ScrollSync {
       targetWordIndex: this.targetWordIndex,
       speakingPace: this.speakingPace.toFixed(1),
       currentSpeed: this.currentSpeed.toFixed(0),
+      targetSpeed: this._lastTargetSpeed ? this._lastTargetSpeed.toFixed(0) : '0',
       isScrolling: this.isScrolling,
       scrollState: this.scrollState,
-      lastMatchedPosition: this.lastMatchedPosition
+      lastMatchedPosition: this.lastMatchedPosition,
+      totalWords: this.totalWords
     };
   }
 

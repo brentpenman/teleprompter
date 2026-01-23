@@ -69,6 +69,8 @@ let voiceToggle;
 let listeningIndicator;
 let waveformCanvas;
 let highlightToggle;
+let debugOverlay;
+let debugUpdateInterval = null;
 
 // Scrolling loop
 function scrollLoop(timestamp) {
@@ -291,6 +293,12 @@ async function enableVoiceMode() {
   state.voiceEnabled = true;
   voiceToggle.classList.add('active');
   listeningIndicator.classList.remove('hidden');
+
+  // Show debug overlay and start updating
+  if (debugOverlay) {
+    debugOverlay.classList.remove('hidden');
+    debugUpdateInterval = setInterval(updateDebugOverlay, 100);
+  }
 }
 
 function disableVoiceMode() {
@@ -312,6 +320,15 @@ function disableVoiceMode() {
   state.voiceState = 'idle';
   voiceToggle.classList.remove('active');
   listeningIndicator.classList.add('hidden');
+
+  // Hide debug overlay
+  if (debugOverlay) {
+    debugOverlay.classList.add('hidden');
+  }
+  if (debugUpdateInterval) {
+    clearInterval(debugUpdateInterval);
+    debugUpdateInterval = null;
+  }
 }
 
 function handleMicrophoneError(err) {
@@ -338,6 +355,17 @@ function handleMicrophoneError(err) {
 function showVoiceError(message) {
   // Brief error display using alert as simple fallback
   alert(message);
+}
+
+function updateDebugOverlay() {
+  if (!scrollSync || !debugOverlay) return;
+
+  const s = scrollSync.getState();
+  document.getElementById('debug-speed').textContent = s.currentSpeed;
+  document.getElementById('debug-target-speed').textContent = s.targetSpeed;
+  document.getElementById('debug-pace').textContent = s.speakingPace;
+  document.getElementById('debug-position').textContent = `${s.targetWordIndex}/${s.totalWords}`;
+  document.getElementById('debug-state').textContent = s.scrollState;
 }
 
 function updateVoiceIndicator() {
@@ -572,6 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
   listeningIndicator = document.getElementById('listening-indicator');
   waveformCanvas = document.getElementById('waveform-canvas');
   highlightToggle = document.getElementById('highlight-toggle');
+  debugOverlay = document.getElementById('debug-overlay');
 
   // Check browser support for speech recognition
   if (!SpeechRecognizer.isSupported()) {

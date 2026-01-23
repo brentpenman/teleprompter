@@ -257,3 +257,22 @@ body {
 .no-highlight #teleprompter-text {
     color: #f0f0f0 !important;
 }
+
+/* Debug overlay for scroll stats */
+#debug-overlay {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #0f0;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 4px;
+    z-index: 9999;
+    line-height: 1.6;
+}
+
+#debug-overlay span {
+    color: #fff;
+}
