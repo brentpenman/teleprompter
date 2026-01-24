@@ -50,6 +50,34 @@ function debugLog(...args) {
   }
 }
 
+// Debug mode toggle functions
+function toggleDebugMode() {
+  debugMode = !debugMode;
+
+  if (debugOverlay) {
+    debugOverlay.classList.toggle('hidden', !debugMode);
+  }
+
+  if (debugMode) {
+    startDebugUpdates();
+    console.log('[Debug] Mode enabled - Ctrl+Shift+D to toggle');
+  } else {
+    stopDebugUpdates();
+  }
+}
+
+function startDebugUpdates() {
+  if (debugUpdateInterval) return;
+  debugUpdateInterval = setInterval(updateDebugOverlay, 100);
+}
+
+function stopDebugUpdates() {
+  if (debugUpdateInterval) {
+    clearInterval(debugUpdateInterval);
+    debugUpdateInterval = null;
+  }
+}
+
 // Scrolling loop variables
 let lastTimestamp = null;
 let animationId = null;
@@ -506,6 +534,75 @@ function updateDebugOverlay() {
   if (targetEl) targetEl.textContent = '-';
 }
 
+// Export debug state to clipboard
+async function exportDebugState() {
+  const stateSnapshot = {
+    timestamp: new Date().toISOString(),
+    version: '1.1',
+
+    position: positionTracker ? {
+      confirmed: positionTracker.getConfirmedPosition(),
+      candidate: positionTracker.candidatePosition,
+      consecutiveCount: positionTracker.consecutiveMatchCount
+    } : null,
+
+    scroll: scrollController ? {
+      isTracking: scrollController.isTracking,
+      speakingPace: scrollController.speakingPace,
+      caretPercent: scrollController.caretPercent,
+      currentScroll: teleprompterContainer?.scrollTop || 0
+    } : null,
+
+    speech: {
+      enabled: state.voiceEnabled,
+      state: state.voiceState
+    },
+
+    script: matcher ? {
+      totalWords: matcher.scriptWords.length
+    } : null,
+
+    settings: {
+      fontSize: state.fontSize,
+      highlightEnabled: state.highlightEnabled
+    }
+  };
+
+  try {
+    const json = JSON.stringify(stateSnapshot, null, 2);
+    await navigator.clipboard.writeText(json);
+    showExportSuccess();
+  } catch (err) {
+    console.error('Clipboard write failed:', err);
+    // Fallback: log to console for manual copy
+    console.log('Debug state (copy manually):\n', JSON.stringify(stateSnapshot, null, 2));
+    showExportFallback();
+  }
+}
+
+function showExportSuccess() {
+  const btn = document.getElementById('export-state-btn');
+  if (btn) {
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('success');
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.classList.remove('success');
+    }, 1500);
+  }
+}
+
+function showExportFallback() {
+  const btn = document.getElementById('export-state-btn');
+  if (btn) {
+    btn.textContent = 'See Console';
+    setTimeout(() => {
+      btn.textContent = 'Export State';
+    }, 2000);
+  }
+}
+
 function setupTuningControls() {
   // v1.0 tuning controls - disabled in v1.1
   // The v1.1 pipeline uses PositionTracker/ScrollController with different tuning
@@ -783,6 +880,27 @@ document.addEventListener('DOMContentLoaded', () => {
   if (highlightToggle) {
     highlightToggle.addEventListener('click', toggleHighlight);
   }
+
+  // Debug overlay export button
+  document.getElementById('export-state-btn')?.addEventListener('click', exportDebugState);
+
+  // Caret slider wiring
+  document.getElementById('caret-slider')?.addEventListener('input', (e) => {
+    const value = parseInt(e.target.value, 10);
+
+    // Update display
+    const valueDisplay = document.getElementById('caret-value');
+    if (valueDisplay) valueDisplay.textContent = `${value}%`;
+
+    // Update caret line visual position
+    const caretLine = document.getElementById('caret-line');
+    if (caretLine) caretLine.style.top = `${value}%`;
+
+    // Update ScrollController (if initialized)
+    if (scrollController && scrollController.setCaretPercent) {
+      scrollController.setCaretPercent(value);
+    }
+  });
 });
 
 // Fullscreen change listener
@@ -812,6 +930,13 @@ document.addEventListener('touchstart', showControls);
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  // Debug overlay toggle: Ctrl+Shift+D (Windows/Linux) or Cmd+Shift+D (Mac)
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyD') {
+    e.preventDefault();
+    toggleDebugMode();
+    return;
+  }
+
   if (state.mode !== 'teleprompter') return;
 
   switch (e.code) {

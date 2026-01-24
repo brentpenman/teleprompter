@@ -370,3 +370,26 @@ body {
     min-width: 30px;
     text-align: right;
 }
+
+/* Debug button styles */
+.debug-btn {
+    background: #333;
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 6px 12px;
+    margin-top: 8px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 12px;
+    width: 100%;
+}
+
+.debug-btn:hover {
+    background: #0f0;
+    color: #000;
+}
+
+.debug-btn.success {
+    background: #0a0;
+    border-color: #0f0;
+}
