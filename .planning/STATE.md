@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 7 - ScrollController COMPLETE ✓
-Plan: All plans complete, verified
-Status: Ready for Phase 8
-Last activity: 2026-01-24 - Phase 7 verified (6/6 must-haves)
+Phase: 8 - Integration (in progress)
+Plan: 1 of 1 complete
+Status: Plan 08-01 complete
+Last activity: 2026-01-24 - Completed 08-01-PLAN.md (Pipeline Wiring)
 
-Progress: [███████░░░] 75% (3/4 phases complete for v1.1)
+Progress: [████████░░] 80% (Phase 8 plan 1 complete)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 8 |
-| Plans passed first try | 8 |
-| Verifications passed | 8 |
+| Plans executed | 9 |
+| Plans passed first try | 9 |
+| Verifications passed | 9 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -52,9 +52,9 @@ Progress: [███████░░░] 75% (3/4 phases complete for v1.1)
 - Fuse.js for fuzzy matching
 
 **What to rewrite:**
-- TextMatcher -> WordMatcher (make stateless)
-- ScrollSync -> PositionTracker + ScrollController (split concerns)
-- Remove ConfidenceLevel.js (absorbed into PositionTracker)
+- TextMatcher -> WordMatcher (make stateless) - DONE
+- ScrollSync -> PositionTracker + ScrollController (split concerns) - DONE
+- Remove ConfidenceLevel.js (absorbed into PositionTracker) - DONE
 
 ### Blockers/Concerns
 
@@ -112,17 +112,25 @@ None.
 | Default 33% caret position | Matches existing reading-marker position |
 | Three tracking states | Covers all ScrollController states from 07-01 |
 
+### Decisions from 08-01
+
+| Decision | Rationale |
+|----------|-----------|
+| Static ES module imports at top of file | ES modules require imports at top level; cleaner than dynamic imports |
+| Disabled v1.0 tuning controls | v1.1 uses different tuning model; will be re-implemented in future phase |
+| Debug mode off by default | Keeps console clean for normal use; developer toggles when needed |
+
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 7 complete and verified
-Resume file: .planning/ROADMAP.md
+Stopped at: Completed 08-01-PLAN.md
+Resume file: .planning/phases/08-integration/08-01-SUMMARY.md
 
 ### Next Steps
 
-1. `/gsd:plan-phase 8` - Plan Integration phase
-2. Execute Phase 8 plans
+1. Check for additional Phase 8 plans (08-02, etc.)
+2. If no more plans, verify Phase 8 complete
 3. Complete v1.1 milestone
 
 ---
-*Updated: 2026-01-24 after Phase 7 verification*
+*Updated: 2026-01-24 after 08-01-PLAN.md completion*
