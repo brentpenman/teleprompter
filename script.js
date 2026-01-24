@@ -1,3 +1,9 @@
+// v1.1 pipeline components
+import { createMatcher, findMatches } from './matching/WordMatcher.js';
+import { PositionTracker } from './matching/PositionTracker.js';
+import { ScrollController } from './matching/ScrollController.js';
+import { Highlighter } from './matching/Highlighter.js';
+
 // State management using Proxy pattern
 const createState = (initialState) => {
   let listeners = [];
@@ -28,13 +34,21 @@ let speechRecognizer = null;
 let audioVisualizer = null;
 let audioStream = null;
 
-// Matching system components (loaded dynamically as ES modules)
-let TextMatcher = null;
-let Highlighter = null;
-let ScrollSync = null;
-let textMatcher = null;
-let highlighter = null;
-let scrollSync = null;
+// v1.1 pipeline component instances
+let matcher = null;           // WordMatcher result (stateless)
+let positionTracker = null;   // Stateful position
+let scrollController = null;  // Reactive scroll
+let highlighter = null;       // Kept from v1.0
+
+// Debug mode (off by default, toggled via Ctrl+Shift+D)
+let debugMode = false;
+
+// Debug logging helper
+function debugLog(...args) {
+  if (debugMode) {
+    console.log('[Debug]', ...args);
+  }
+}
 
 // Scrolling loop variables
 let lastTimestamp = null;
@@ -141,15 +155,15 @@ function resetTeleprompter() {
     teleprompterContainer.scrollTop = 0;
   }
 
-  // Reset matching system
-  if (textMatcher) {
-    textMatcher.reset();
+  // Reset v1.1 pipeline components
+  if (positionTracker) {
+    positionTracker.reset();
+  }
+  if (scrollController) {
+    scrollController.reset();
   }
   if (highlighter) {
     highlighter.clear();
-  }
-  if (scrollSync) {
-    scrollSync.reset();
   }
 
   console.log('[Reset] Teleprompter reset to start');
@@ -254,6 +268,93 @@ function showControls() {
   }, 3000);
 }
 
+// Tracking indicator update function
+function updateTrackingIndicator(scrollState) {
+  const indicator = document.getElementById('tracking-indicator');
+  if (!indicator) return;
+
+  // Remove all state classes
+  indicator.classList.remove('tracking', 'holding', 'stopped');
+
+  // Add appropriate class and text
+  if (scrollState === 'tracking') {
+    indicator.classList.add('tracking');
+    indicator.textContent = 'Tracking';
+  } else if (scrollState === 'holding') {
+    indicator.classList.add('holding');
+    indicator.textContent = 'Holding';
+  } else {
+    indicator.classList.add('stopped');
+    indicator.textContent = 'Stopped';
+  }
+}
+
+// v1.1 pipeline speech transcript handler
+function handleSpeechTranscript(text, isFinal) {
+  if (!matcher || !positionTracker || !scrollController) {
+    debugLog('[Pipeline] Components not ready');
+    return;
+  }
+
+  debugLog('[Speech]', isFinal ? 'FINAL:' : 'interim:', text);
+
+  // Get current position from PositionTracker
+  const prevPosition = positionTracker.getConfirmedPosition();
+
+  // Find matches using stateless WordMatcher
+  const result = findMatches(text, matcher, prevPosition, {
+    radius: 50,
+    minConsecutive: 2,
+    distanceWeight: 0.3
+  });
+
+  if (!result.bestMatch) {
+    debugLog('[Pipeline] No match found');
+    return;
+  }
+
+  debugLog('[Match]', {
+    position: result.bestMatch.position,
+    score: result.bestMatch.combinedScore.toFixed(3),
+    distance: result.bestMatch.distance
+  });
+
+  // Process through PositionTracker
+  const processResult = positionTracker.processMatch(result.bestMatch);
+
+  debugLog('[Position]', processResult.action,
+    processResult.action === 'advanced'
+      ? `-> ${processResult.confirmedPosition}`
+      : `(confirmed: ${processResult.confirmedPosition})`
+  );
+
+  if (processResult.action === 'advanced') {
+    // Notify ScrollController
+    scrollController.onPositionAdvanced(
+      processResult.confirmedPosition,
+      prevPosition
+    );
+
+    // Update highlight
+    if (highlighter && state.highlightEnabled) {
+      highlighter.highlightPosition(
+        processResult.confirmedPosition,
+        matcher.scriptWords
+      );
+    }
+
+    // Update confidence indicator
+    if (audioVisualizer) {
+      audioVisualizer.setConfidenceLevel('high');
+    }
+  } else if (processResult.action === 'exploring') {
+    // Show medium confidence during skip exploration
+    if (audioVisualizer) {
+      audioVisualizer.setConfidenceLevel('medium');
+    }
+  }
+}
+
 // Voice mode controls
 async function enableVoiceMode() {
   // Request microphone permission
@@ -276,69 +377,10 @@ async function enableVoiceMode() {
   }
   audioVisualizer.start(audioStream);
 
-  // Track last final transcript to detect new words
-  let lastFinalLength = 0;
-  let stableWords = [];
-
   // Initialize and start speech recognizer
   if (!speechRecognizer) {
     speechRecognizer = new SpeechRecognizer({
-      onTranscript: (text, isFinal) => {
-        console.log(`[Voice] ${isFinal ? 'FINAL' : 'interim'}: ${text}`);
-
-        if (textMatcher && scrollSync) {
-          // Tokenize the current transcript
-          const words = text.toLowerCase().replace(/[.,!?;:'"()\[\]{}]/g, '').split(/\s+/).filter(w => w.length > 0);
-
-          if (isFinal) {
-            // FINAL: Update stable words with the complete final transcript
-            // Only add truly new words (beyond what we had before)
-            const newWords = words.slice(lastFinalLength);
-            stableWords.push(...newWords);
-            lastFinalLength = words.length;
-
-            // Keep buffer manageable
-            if (stableWords.length > 30) {
-              stableWords = stableWords.slice(-30);
-            }
-            console.log(`[Buffer] Added ${newWords.length} words: "${newWords.join(' ')}" | Buffer: "${stableWords.slice(-5).join(' ')}"`);
-          } else if (words.length < lastFinalLength) {
-            // Recognition restarted (interim is shorter than last final)
-            // Reset tracking but keep stable buffer
-            lastFinalLength = 0;
-            console.log(`[Buffer] Recognition restarted, keeping buffer: "${stableWords.slice(-5).join(' ')}"`);
-          }
-
-          // For matching: use stable buffer + any interim extension
-          // This gives us stability from finals + responsiveness from interims
-          const interimExtension = words.length > lastFinalLength ? words.slice(lastFinalLength) : words;
-          const combinedWords = [...stableWords, ...interimExtension];
-          const matchWords = combinedWords.slice(-3);
-
-          if (matchWords.length < 2) {
-            return; // Not enough words yet
-          }
-
-          // Use confidence-aware matching
-          const result = textMatcher.getMatchWithConfidence(matchWords.join(' '));
-
-          // Update scroll state machine (may reject large skips)
-          const { state: newState, positionAccepted } = scrollSync.updateConfidence(result);
-
-          // Update visual confidence indicator
-          if (audioVisualizer) {
-            audioVisualizer.setConfidenceLevel(positionAccepted ? result.level : 'low');
-          }
-
-          // Update highlight only if position was accepted (not rejected as skip)
-          if (positionAccepted && result.position !== null && highlighter) {
-            highlighter.highlightPosition(result.position, textMatcher.scriptWords);
-          }
-
-          // Debug logging
-          console.log(`[Matching] Words: "${matchWords.join(' ')}", Position: ${result.position}${positionAccepted ? '' : ' (rejected)'}, Confidence: ${result.level} (${(result.confidence * 100).toFixed(0)}%), State: ${newState}`);
-        }
-      },
+      onTranscript: handleSpeechTranscript,
       onError: (errorType, isFatal) => {
         console.error(`[Voice] Error: ${errorType} (fatal: ${isFatal})`);
         if (isFatal) {
@@ -354,6 +396,11 @@ async function enableVoiceMode() {
   }
 
   speechRecognizer.start();
+
+  // Start scroll controller
+  if (scrollController) {
+    scrollController.start();
+  }
 
   // Update UI
   state.voiceEnabled = true;
@@ -379,8 +426,8 @@ function disableVoiceMode() {
   }
 
   // Stop voice-controlled scrolling
-  if (scrollSync) {
-    scrollSync.stop();
+  if (scrollController) {
+    scrollController.stop();
   }
 
   // Clear references
@@ -429,43 +476,41 @@ function showVoiceError(message) {
 }
 
 function updateDebugOverlay() {
-  if (!scrollSync || !debugOverlay) return;
+  if (!debugOverlay) return;
 
-  const s = scrollSync.getState();
-  document.getElementById('debug-speed').textContent = s.currentSpeed;
-  document.getElementById('debug-target-speed').textContent = s.targetSpeed;
-  document.getElementById('debug-pace').textContent = s.speakingPace;
-  document.getElementById('debug-position').textContent = `${s.targetWordIndex}/${s.totalWords}`;
-  document.getElementById('debug-state').textContent = s.scrollState;
+  // Position info (from PositionTracker)
+  const posInfo = positionTracker ? {
+    confirmed: positionTracker.getConfirmedPosition(),
+    total: matcher?.scriptWords.length || 0
+  } : { confirmed: 0, total: 0 };
+
+  document.getElementById('debug-position').textContent =
+    `${posInfo.confirmed}/${posInfo.total}`;
+
+  // Scroll info (from ScrollController)
+  if (scrollController) {
+    document.getElementById('debug-pace').textContent =
+      scrollController.speakingPace?.toFixed(1) || '0';
+    document.getElementById('debug-state').textContent =
+      scrollController.isTracking ? 'tracking' : 'holding';
+  }
+
+  // Speed display
+  if (teleprompterContainer) {
+    document.getElementById('debug-speed').textContent =
+      Math.round(teleprompterContainer.scrollTop);
+  }
+
+  // Target speed - use 0 or remove (v1.1 doesn't have this concept)
+  const targetEl = document.getElementById('debug-target-speed');
+  if (targetEl) targetEl.textContent = '-';
 }
 
 function setupTuningControls() {
-  const tuneInputs = {
-    'tune-base-speed': 'baseSpeed',
-    'tune-behind-max': 'behindMax',
-    'tune-behind-thresh': 'behindThreshold',
-    'tune-ahead-thresh': 'aheadThreshold',
-    'tune-accel-time': 'accelerationTimeConstant',
-    'tune-decel-time': 'decelerationTimeConstant',
-    'tune-patient': 'patientThreshold',
-    'tune-max-skip': 'maxSkip',
-    'tune-dwell': 'matchDwellTime',
-    'tune-silence': 'silenceThreshold'
-  };
-
-  for (const [inputId, param] of Object.entries(tuneInputs)) {
-    const input = document.getElementById(inputId);
-    if (input) {
-      input.addEventListener('input', () => {
-        if (!scrollSync) return;
-        let value = parseFloat(input.value);
-        // Convert thresholds from seconds to ms
-        if (param === 'patientThreshold' || param === 'silenceThreshold') value *= 1000;
-        scrollSync.setTuning({ [param]: value });
-        console.log(`[Tuning] ${param} = ${value}`);
-      });
-    }
-  }
+  // v1.0 tuning controls - disabled in v1.1
+  // The v1.1 pipeline uses PositionTracker/ScrollController with different tuning
+  // These controls may be re-implemented in a future phase
+  console.log('[Tuning] v1.0 tuning controls disabled (v1.1 pipeline active)');
 }
 
 function updateVoiceIndicator() {
@@ -493,46 +538,41 @@ function toggleVoiceMode() {
   }
 }
 
-// Matching system initialization
+// Matching system initialization (v1.1 pipeline)
 async function initMatchingSystem(scriptText) {
-  // Dynamic import of ES modules
-  if (!TextMatcher) {
-    const textUtils = await import('./matching/textUtils.js');
-    const matcherModule = await import('./matching/TextMatcher.js');
-    const highlightModule = await import('./matching/Highlighter.js');
-    const scrollModule = await import('./matching/ScrollSync.js');
+  // Build stateless matcher for this script
+  matcher = createMatcher(scriptText, { threshold: 0.3 });
 
-    TextMatcher = matcherModule.TextMatcher;
-    Highlighter = highlightModule.Highlighter;
-    ScrollSync = scrollModule.ScrollSync;
-  }
-
-  // Initialize with current script
-  textMatcher = new TextMatcher(scriptText, {
-    windowSize: 3,
-    threshold: 0.3,
-    minConsecutiveMatches: 2
+  // Create stateful position tracker
+  positionTracker = new PositionTracker({
+    confidenceThreshold: 0.7,
+    nearbyThreshold: 10,
+    smallSkipConsecutive: 4,
+    largeSkipConsecutive: 5
   });
 
+  // Create reactive scroll controller
+  scrollController = new ScrollController(
+    teleprompterContainer,
+    positionTracker,
+    matcher.scriptWords.length,
+    {
+      caretPercent: 33, // Default, will be updated by slider
+      holdTimeout: 5000,
+      onStateChange: (scrollState) => {
+        updateTrackingIndicator(scrollState);
+        debugLog('[Scroll] State:', scrollState);
+      }
+    }
+  );
+
+  // Create highlighter (same as v1.0 but static import)
   highlighter = new Highlighter(teleprompterText, {
     phraseLength: 3,
     enabled: state.highlightEnabled
   });
 
-  scrollSync = new ScrollSync(teleprompterContainer, teleprompterText, {
-    baseSpeed: 60,
-    onStateChange: (newState, prevState) => {
-      console.log(`[Scroll] State: ${prevState} -> ${newState}`);
-    },
-    onConfidenceChange: (level, confidence) => {
-      // Confidence change is handled in onTranscript already
-    }
-  });
-
-  // Set total words on scrollSync for boundary calculations
-  scrollSync.totalWords = textMatcher.scriptWords.length;
-
-  console.log('[Matching] System initialized with', textMatcher.scriptWords.length, 'words');
+  debugLog('[Pipeline] Initialized with', matcher.scriptWords.length, 'words');
 }
 
 // Highlight toggle function
@@ -637,15 +677,15 @@ function switchMode(newMode) {
       disableVoiceMode();
     }
 
-    // Clean up matching system
-    if (textMatcher) {
-      textMatcher.reset();
+    // Clean up v1.1 pipeline components
+    if (positionTracker) {
+      positionTracker.reset();
+    }
+    if (scrollController) {
+      scrollController.reset();
     }
     if (highlighter) {
       highlighter.clear();
-    }
-    if (scrollSync) {
-      scrollSync.reset();
     }
 
     // Reset confidence indicator to default
