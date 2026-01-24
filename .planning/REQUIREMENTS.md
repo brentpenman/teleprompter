@@ -9,10 +9,10 @@ Requirements for the position-tracking rewrite. Each maps to roadmap phases.
 
 ### Matching Algorithm
 
-- [ ] **MATCH-01**: App uses distance-weighted scoring where position is intrinsic to match confidence
-- [ ] **MATCH-02**: App searches within a constrained radius around current position (not entire script)
-- [ ] **MATCH-03**: App requires consecutive word matches before updating confirmed position
-- [ ] **MATCH-04**: App handles repeated phrases by preferring matches near current position
+- [x] **MATCH-01**: App uses distance-weighted scoring where position is intrinsic to match confidence
+- [x] **MATCH-02**: App searches within a constrained radius around current position (not entire script)
+- [x] **MATCH-03**: App requires consecutive word matches before updating confirmed position
+- [x] **MATCH-04**: App handles repeated phrases by preferring matches near current position
 
 ### Position Tracking
 
@@ -36,7 +36,7 @@ Requirements for the position-tracking rewrite. Each maps to roadmap phases.
 
 ### Architecture
 
-- [ ] **ARCH-01**: WordMatcher is stateless (pure function for matching)
+- [x] **ARCH-01**: WordMatcher is stateless (pure function for matching)
 - [ ] **ARCH-02**: PositionTracker owns confirmed position as single source of truth
 - [ ] **ARCH-03**: ScrollController is purely reactive to PositionTracker events
 - [ ] **ARCH-04**: Old components removed (TextMatcher, ScrollSync, ConfidenceLevel)
@@ -77,10 +77,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MATCH-01 | Phase 5 | Pending |
-| MATCH-02 | Phase 5 | Pending |
-| MATCH-03 | Phase 5 | Pending |
-| MATCH-04 | Phase 5 | Pending |
+| MATCH-01 | Phase 5 | Complete |
+| MATCH-02 | Phase 5 | Complete |
+| MATCH-03 | Phase 5 | Complete |
+| MATCH-04 | Phase 5 | Complete |
 | POS-01 | Phase 6 | Pending |
 | POS-02 | Phase 6 | Pending |
 | POS-03 | Phase 6 | Pending |
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCROLL-05 | Phase 7 | Pending |
 | SKIP-01 | Phase 6 | Pending |
 | SKIP-02 | Phase 6 | Pending |
-| ARCH-01 | Phase 5 | Pending |
+| ARCH-01 | Phase 5 | Complete |
 | ARCH-02 | Phase 6 | Pending |
 | ARCH-03 | Phase 7 | Pending |
 | ARCH-04 | Phase 8 | Pending |

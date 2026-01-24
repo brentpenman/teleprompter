@@ -61,7 +61,7 @@ Plans:
 4. Never scroll ahead of confirmed position
 5. Skip detection requires consecutive-word confirmation
 
-- [ ] **Phase 5: WordMatcher** - Pure matching foundation with distance-weighted scoring
+- [x] **Phase 5: WordMatcher** - Pure matching foundation with distance-weighted scoring
 - [ ] **Phase 6: PositionTracker** - Confirmation logic with two-position model
 - [ ] **Phase 7: ScrollController** - Reactive display with pace-derived scrolling
 - [ ] **Phase 8: Integration** - Wire pipeline, remove old components
@@ -75,8 +75,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — TDD: Core WordMatcher implementation with distance-weighted scoring
-- [ ] 05-02-PLAN.md — Edge cases, character offsets, and JSDoc types
+- [x] 05-01-PLAN.md — TDD: Core WordMatcher implementation with distance-weighted scoring
+- [x] 05-02-PLAN.md — Edge cases, character offsets, and JSDoc types
 
 **Success Criteria** (what must be TRUE):
   1. User speaks "four score and seven" near script start - app finds match within 50-word radius of current position
@@ -140,7 +140,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 2. Speech Recognition | v1.0 | 4/4 | Complete | 2026-01-22 |
 | 3. Text Matching | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 4. Scroll Control | v1.0 | 4/4 | Complete | 2026-01-24 |
-| 5. WordMatcher | v1.1 | 0/2 | Planned | - |
+| 5. WordMatcher | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 6. PositionTracker | v1.1 | 0/TBD | Not started | - |
 | 7. ScrollController | v1.1 | 0/TBD | Not started | - |
 | 8. Integration | v1.1 | 0/TBD | Not started | - |
