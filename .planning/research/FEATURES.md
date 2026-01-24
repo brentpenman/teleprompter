@@ -1,247 +1,289 @@
-# Feature Research
+# Following-Along Features
 
-**Domain:** Voice-Controlled Teleprompter (Web Application)
-**Researched:** 2026-01-22
-**Confidence:** MEDIUM-HIGH
+**Domain:** Voice-controlled teleprompter position tracking
+**Researched:** 2026-01-24
+**Confidence:** MEDIUM (verified against multiple competitor products and user reviews)
 
-## Feature Landscape
+## Executive Summary
 
-### Table Stakes (Users Expect These)
+Voice-controlled teleprompters have converged on a standard behavioral model: scroll as the user speaks, pause when they stop or go off-script, resume when they return. However, the *implementation quality* varies dramatically. The primary frustrations users report are:
 
-Features users assume exist. Missing these = product feels incomplete.
+1. **Jumping ahead unexpectedly** - especially with repeated phrases
+2. **Losing position** - the teleprompter scrolls past where the user actually is
+3. **Not responding** - fails to track speech, forcing restarts
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Script Import/Paste | All teleprompters need content input | LOW | Support plain text paste at minimum; optional: file import (.txt, .docx, .pdf) |
-| Adjustable Scroll Speed | Manual control is baseline expectation | LOW | Slider or +/- buttons to control speed |
-| Text Size Control | Reading distance varies by setup | LOW | Font size adjustment (typically 20-60pt range) |
-| Dark Background | Professional broadcast standard | LOW | Dark bg with light text reduces eye strain, looks professional |
-| Pause/Resume Control | Users need to stop and restart | LOW | Spacebar or click to pause/resume |
-| Script Persistence | Don't lose work between sessions | MEDIUM | Local storage (localStorage/IndexedDB) minimum |
-| Visual Scrolling Indicator | Users need to know where they are | LOW | Current line highlight or progress markers |
-| Fullscreen Mode | Maximize screen real estate | LOW | Standard browser fullscreen API |
-| Text Color Customization | Personal preference varies | LOW | At least 2-3 color options (white, green, yellow) |
-| Mirror/Flip Text | Hardware prompter compatibility | LOW | CSS transform for horizontal flip |
+The sophisticated systems (Autoscript Voice for broadcast) use advanced pattern matching and positional context. Consumer apps (PromptSmart, Speakflow) struggle with edge cases. The key differentiator is **positional anchoring** - the best systems maintain "where you are in the script" as a strong constraint, not just "what words match."
 
-### Differentiators (Competitive Advantage)
+**Key insight:** Users universally expect "never scroll ahead of where I am." This is table stakes. The challenge is *detecting* where they are when speech is ambiguous.
 
-Features that set the product apart. Not required, but valued.
+## Standard Teleprompter Behaviors
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Semantic Speech Matching | **Core differentiator**: Handles paraphrasing, not just exact word matching | HIGH | This is the killer feature - distinguishes from basic voice scrolling |
-| Intelligent Pause Detection | Knows when you're off-script vs just pausing | HIGH | Confidence-based: high confidence = scroll, low = wait |
-| Skip-Ahead Detection | Automatically jumps when user skips sections | HIGH | Semantic matching enables this vs exact word matching |
-| Visual Confidence Feedback | Shows user when AI is confident vs uncertain | MEDIUM | Color coding or indicator showing match confidence |
-| Zero Configuration | Works immediately without calibration | MEDIUM | Big UX win over PromptSmart's optimization requirements |
-| Graceful Degradation | Smooth behavior when recognition uncertain | MEDIUM | Doesn't freeze or jump erratically like free tools |
-| Free AI Processing | No API costs passed to users | N/A (constraint) | Competitive advantage vs paid services |
-| Real-time Editing While Reading | Edit script without stopping presentation | MEDIUM | Most apps require stopping to edit |
-| Script Position Jump Controls | Click/tap to jump to any position | LOW | Quick navigation when reviewing sections |
-| Multiple Speech Models | User can choose accuracy vs speed tradeoff | MEDIUM | Different models for different use cases |
+### Table Stakes - Expected Behaviors
 
-### Anti-Features (Commonly Requested, Often Problematic)
+| Behavior | Description | How Competitors Handle It |
+|----------|-------------|---------------------------|
+| **Pause-and-hold** | Stop scrolling when user stops speaking | Universal. PromptSmart: "VoiceTrack will wait patiently for you to begin reading again." |
+| **Resume on return** | Continue from held position when speech resumes | Universal. Speakflow: 15-second timeout before requiring manual restart. |
+| **Speed matching** | Scroll speed adapts to speaking pace | Standard. "It's actually listening to your voice and moving the text at whatever speed you're speaking." |
+| **Cue indicator** | Fixed visual marker showing "read here" position | Common. Usually top 1/3 of screen. Customizable arrow, line, or highlight. |
+| **Off-script tolerance** | Hold position during improvisation | Standard. Autoscript: "pause for adlibs and resume when the presenter is back on script." |
 
-Features that seem good but create problems.
+### Differentiators - Advanced Behaviors
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Perfect Word-for-Word Tracking | Seems like "better accuracy" | Forces robotic delivery; breaks on any deviation; high cognitive load | Semantic matching with confidence bands - allows natural speech |
-| Cloud Script Sync | "I want my scripts everywhere" | Adds auth, backend, costs; against free constraint; privacy concerns | Local storage + export/import; or use browser sync (no backend needed) |
-| Video Recording Integration | "All-in-one solution" | Scope creep; browser recording permissions complex; many better dedicated tools exist | Focus on being best prompter; use with OBS/recording software |
-| Multi-User Collaboration | "Teams need to share scripts" | Requires backend, auth, real-time sync infrastructure; massive scope increase | Single-user tool; users can copy/paste to share; or use Google Docs then import |
-| Professional Hardware Integration | "Connect to HDMI monitors" | Web app can't access HDMI; requires native app or hardware | Use browser's multi-monitor support; users can drag window to external display |
-| Offline Speech Recognition | "Should work without internet" | Browser speech APIs require internet; local models too large for web; conflicts with "free AI" | Require internet connection; most users creating content have internet anyway |
-| Unlimited Script Length | "I have 2-hour presentations" | Long scripts = poor UX, matching degrades, memory issues | Suggest breaking into segments; warn at ~5000 words |
-| Custom Wake Words | "Say 'next' to scroll" | Not a prompter use case; conflicts with reading script that might contain those words | Continuous listening and semantic matching is the right model |
+| Behavior | Description | Who Has It |
+|----------|-------------|------------|
+| **Positional context awareness** | Use script position to disambiguate repeated phrases | Autoscript Voice (broadcast-grade) |
+| **Multi-presenter support** | Track multiple voices, maintain separate positions | Autoscript Voice |
+| **Word-level visual feedback** | Underline/highlight matched words in real-time | Speakflow: "individual words will underline to indicate that the app 'heard' you" |
+| **Skip-resistant matching** | Require confirmation before large position jumps | Not found in consumer products - potential differentiator |
+| **Smooth scroll interpolation** | No jarring jumps between matched positions | Teleprompter.com claims "proprietary smooth scrolling technology" |
 
-## Feature Dependencies
+### Anti-Features - What to Avoid
 
-```
-[Script Input] (required first)
-    └──enables──> [Speech Matching]
-                       ├──enables──> [Auto Scrolling]
-                       ├──enables──> [Pause Detection]
-                       └──enables──> [Skip Detection]
+| Anti-Feature | Why It's Bad | How It Manifests |
+|--------------|--------------|------------------|
+| **Greedy forward matching** | Jumps to next occurrence of phrase, losing position | PromptSmart: "If you repeat a phrase within a few paragraphs, it often doesn't recognize the first one and will skip forward" |
+| **No positional constraint** | Allows wild jumps across the script | User: "the script suddenly jumped back up to the beginning" |
+| **Binary match/no-match** | No uncertainty handling, causes jarring behavior | User: "It frequently looses track of where I am at" |
+| **Fixed scroll speed** | Doesn't adapt to user's natural pace | User: "trying to set a proper scroll speed to match my voice is the biggest ouch" |
+| **Aggressive timeout** | Stops tracking too quickly on pause | Speakflow's 15-second timeout requires manual restart |
 
-[Speech Matching]
-    └──requires──> [Microphone Permission]
+## Edge Case Handling
 
-[Visual Confidence Feedback]
-    └──enhances──> [Speech Matching] (helps user understand behavior)
+### Pauses
 
-[Text Size Control] ──independent──> [Dark Background]
-[Pause/Resume Control] ──independent──> [Scroll Speed]
+**Standard behavior:** Hold position, keep next words visible at cue indicator.
 
-[Export Script] ──conflicts with──> [Cloud Sync] (competing persistence models)
-```
+**Competitor implementations:**
+- **PromptSmart:** "VoiceTrack automatically scrolls as you speak, stops when you pause or improvise, and seamlessly resumes when you return to your script."
+- **Autoscript Voice:** "It will even pause for adlibs and resume scrolling when the presenter is back on script."
+- **Speakflow:** "After 15 seconds of silence, the browser will automatically stop listening." (Requires manual restart.)
 
-### Dependency Notes
+**Workarounds users employ:**
+- Adding `*pause here*` markers in script
+- Using `< bracketed >` sections for non-spoken content (PromptSmart's Scroll Assist)
 
-- **Speech Matching requires Script Input:** Can't match speech without a reference script loaded
-- **Auto Scrolling requires Speech Matching:** The scroll automation is driven by the matching engine
-- **Visual Confidence enhances Speech Matching:** Not required but makes the "magic" visible and builds trust
-- **Microphone Permission gates everything:** If denied, app falls back to manual scrolling only
-- **Export/Cloud Sync conflict:** Choose local-first with export, or cloud sync; hybrid adds complexity
+**Recommendation:**
+- Hold position indefinitely during silence
+- Keep visual feedback active (cue indicator, current position)
+- Resume automatically when speech detected, no manual restart required
+- Consider visual "paused" indicator so user knows state
 
-## MVP Definition
+### Skip-ahead
 
-### Launch With (v1)
+**The problem:** User wants to skip a section, says words from later in script.
 
-Minimum viable product - what's needed to validate the concept.
+**Competitor implementations:**
+- **No competitor handles this well.** All systems match words to script position, but lack confirmation for large jumps.
+- PromptSmart's workaround: "modify repetitive phrases to a shorthand so that you know what to say but the app doesn't scroll forward"
+- This puts burden on user to rewrite their script - poor UX.
 
-- [x] **Script Input (paste text)** - Essential: can't be a prompter without content
-- [x] **Basic Display (dark bg, large text, scrolling)** - Essential: core prompter functionality
-- [x] **Microphone Access** - Essential: required for voice control
-- [x] **Semantic Speech Matching** - Essential: the core differentiator, what makes this special
-- [x] **Auto-scroll when confident** - Essential: the value proposition in action
-- [x] **Pause when uncertain** - Essential: prevents bad jumps, builds trust
-- [x] **Manual scroll controls (spacebar, speed)** - Essential: fallback when voice fails
-- [x] **Local storage persistence** - Essential: don't lose scripts on refresh
+**What users actually want (based on user-stated requirements):**
+- Require a few words of confirmation before jumping
+- Use positional context: "if at position 100 saying 'It's important', stay at 100 even if phrase appears at 200"
 
-### Add After Validation (v1.x)
+**Recommendation:**
+- Implement "confirmation window" for skip-ahead: require N consecutive matched words before jumping
+- Weight matches by proximity to current position
+- For large jumps (>N words ahead), require stronger confidence
+- Never jump backward unless explicitly triggered
 
-Features to add once core is working.
+### Off-script/Paraphrasing
 
-- [ ] **Visual confidence indicator** - Trigger: Users ask "why did it pause?" Helps them understand AI behavior
-- [ ] **Skip-ahead detection** - Trigger: Users report "I skipped a paragraph and it got lost" - semantic matching should enable this
-- [ ] **Script position jump (click to navigate)** - Trigger: Users need to review/practice specific sections
-- [ ] **Text formatting options** - Trigger: Users request bigger/different colors/fonts
-- [ ] **Export/Import scripts** - Trigger: Users want to save scripts outside browser
-- [ ] **Multiple script management** - Trigger: Users have more than one script
-- [ ] **Real-time script editing** - Trigger: Users find typos while reading
+**Standard behavior:** Hold position, don't scroll.
 
-### Future Consideration (v2+)
+**Competitor implementations:**
+- **PromptSmart:** "If you ad-lib or go off-script, VoiceTrack will wait patiently for you to begin reading again."
+- **Autoscript Voice:** "Voice actively monitors the production audio feed to automatically advance the script as the words are spoken. It will even pause for adlibs."
 
-Features to defer until product-market fit is established.
+**What happens when user paraphrases:**
+- System hears words not in script
+- Cannot match, so holds position
+- When user returns to script text, tracking resumes
 
-- [ ] **Multi-language support** - Why defer: Complex to test; need to validate English-first
-- [ ] **Speech model selection** - Why defer: Premature optimization; start with one good model
-- [ ] **Keyboard shortcuts** - Why defer: Power user feature; validate with basic controls first
-- [ ] **Script templates** - Why defer: Need to understand user content patterns first
-- [ ] **Reading stats (WPM, time remaining)** - Why defer: Nice-to-have, not core value
-- [ ] **Teleprompter hardware mode (mirroring)** - Why defer: Niche use case; validate software-only first
+**The problem:** If display scrolled ahead before user went off-script, they may be looking at wrong section.
 
-## Feature Prioritization Matrix
+**User's stated requirement:** "Never scroll ahead of where user actually is."
 
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Semantic speech matching | HIGH | HIGH | P1 |
-| Auto-scroll on confidence | HIGH | MEDIUM | P1 |
-| Pause on uncertainty | HIGH | MEDIUM | P1 |
-| Script input (paste) | HIGH | LOW | P1 |
-| Basic text display | HIGH | LOW | P1 |
-| Manual scroll controls | HIGH | LOW | P1 |
-| Local storage | HIGH | LOW | P1 |
-| Visual confidence indicator | MEDIUM | MEDIUM | P2 |
-| Skip-ahead detection | MEDIUM | HIGH | P2 |
-| Position jump controls | MEDIUM | LOW | P2 |
-| Script export/import | MEDIUM | LOW | P2 |
-| Multiple script management | MEDIUM | MEDIUM | P2 |
-| Real-time editing | MEDIUM | MEDIUM | P2 |
-| Text formatting options | LOW | LOW | P2 |
-| Reading statistics | LOW | MEDIUM | P3 |
-| Keyboard shortcuts | LOW | LOW | P3 |
-| Multi-language | LOW | HIGH | P3 |
-| Script templates | LOW | MEDIUM | P3 |
+**Recommendation:**
+- Maintain "confirmed position" (last high-confidence match)
+- Display can show lookahead, but cue indicator stays at confirmed position
+- When off-script detected, don't scroll
+- When back on-script, resume from last confirmed position
 
-**Priority key:**
-- P1: Must have for launch - validates core value proposition
-- P2: Should have, add when possible - improves experience, addresses feedback
-- P3: Nice to have, future consideration - polish and power user features
+### Repeated Phrases
 
-## Competitor Feature Analysis
+**The core problem:** Same phrase appears multiple times in script. Which occurrence does user mean?
 
-| Feature | PromptSmart | Speakflow | Teleprompter Pro | Our Approach |
-|---------|-------------|-----------|------------------|--------------|
-| Voice scrolling | Exact word matching (VoiceTrack) | Voice-activated | Manual only | **Semantic matching** - handles paraphrasing |
-| Pause detection | Stops when you stop talking | Manual control | Manual only | **Confidence-based** - knows uncertain vs off-script |
-| Skip handling | Gets confused if off-script | Manual repositioning | Manual only | **Semantic jump** - finds where you are |
-| Setup required | Requires optimization/calibration | No calibration | N/A | **Zero config** - works immediately |
-| Price | $9.99/month | $10/month (Pro) | $59.99/year | **Free** (no API costs) |
-| Platform | iOS, Android app | Web browser | iOS, Mac app | **Web only** (proof of concept) |
-| Offline | Yes (local processing) | No (cloud) | Yes | No (requires internet for speech API) |
-| Script sync | Cloud sync (paid) | Cloud collaboration | iCloud sync | Local storage + export |
-| Video recording | Built-in | Built-in 1080p | Built-in with effects | Not included (use external tools) |
-| Multi-language | 14 languages | Limited | English focus | English only (v1) |
+**Competitor failures:**
+- **PromptSmart:** "If you repeat a phrase or point within a few paragraphs of where you are speaking, it often doesn't recognize the first one where you are actually at and will skip forward to the next one."
+- User review: "This is a known issue that often just stalls and doesn't respond to your voice or jumps too far ahead."
 
-**Competitive positioning:** We compete on intelligence (semantic matching) and price (free), not features breadth. We're a focused tool that does one thing exceptionally well: following your natural speech.
+**Workarounds competitors suggest:**
+- "Substitute acronyms or short-hand ('FBI' vs. 'Federal Bureau of Investigation')"
+- "Modify those repetitive phrases to a shorthand"
+- (These put burden on user to rewrite script - poor UX)
 
-## Domain-Specific Insights
+**What actually works (Autoscript Voice approach):**
+- "Real time speech recognition combined with proprietary algorithms and advanced pattern matching ensures that the script always scrolls in perfect synchronisation with the presenter."
+- Tested over 3 years with NBC News for broadcast reliability.
 
-### User Expectations from Research
+**Technical approaches from speech alignment research:**
+- **Monotonic constraint:** Position can only move forward (no backtracking)
+- **Positional weighting:** Matches near current position weighted higher
+- **Forced alignment algorithms (Viterbi):** Find most probable path through script
+- **Dynamic time warping:** Align speech to text with warping constraints
 
-**What users hate about traditional teleprompters:**
-- Constant speed forces robotic delivery
-- Manual speed adjustments break flow
-- Going off-script loses position
-- Skipping ahead requires manual repositioning
+**Recommendation:**
+- Implement positional weighting: matches closer to current position score higher
+- Use monotonic constraint: never match backward from confirmed position
+- Require stronger confidence for matches far from current position
+- Track position as a probability distribution, not a single point
 
-**What users complain about with voice teleprompters:**
-- "Gets confused if I mispronounce words" (exact matching problem)
-- "Stops scrolling if I pause to think" (can't distinguish pause from off-script)
-- "Loses place if I rephrase anything" (can't handle natural speech variation)
-- "Jumps around erratically" (poor confidence handling)
-- "Requires calibration before each use" (friction)
+## UX Patterns
 
-**Our solution addresses these by:**
-- Semantic matching handles mispronunciation and paraphrasing
-- Confidence-based decisions distinguish pauses from problems
-- Graceful degradation prevents erratic jumping
-- Zero configuration removes friction
+### Visual Feedback Patterns
 
-### Technical Considerations
+**Cue indicator (universal):**
+- Fixed position marker showing "read here" point
+- Usually top 1/3 of screen
+- Styles: arrow, line, highlight band
+- Customizable position, color, opacity
+- "A cue indicator can help your reader's eyeline remain close to the camera lens"
 
-**Speech Recognition Realities:**
-- Browser Speech Recognition API (Web Speech API) available in Chrome, Edge, Safari
-- Requires internet connection (cloud-based processing)
-- Free to use, no API keys needed (meets constraint)
-- Real-time streaming results (partial and final)
-- Accuracy varies with microphone quality and background noise
+**Word-level feedback (advanced):**
+- Speakflow: "individual words will underline to indicate that the app 'heard' you"
+- Shows real-time confirmation that speech recognition is working
+- Helps user know when they're "in sync"
 
-**Matching Challenges:**
-- Exact word matching too brittle (PromptSmart's approach)
-- Need semantic similarity (embeddings, fuzzy matching)
-- Balance: too sensitive = jumps around, too strict = stuck
-- Sliding window approach: match recent speech to script sections
-- Confidence threshold tuning critical for UX
+**State indicators:**
+- "Recording" / "Paused" / "Listening" state
+- Visual distinction between active tracking and held position
 
-**Performance Constraints:**
-- Web Speech API has ~60-second timeout, need to restart recognition periodically
-- Embedding models need to run client-side (transformers.js or similar)
-- Script length affects matching performance (suggest max ~5000 words)
-- Real-time processing budget: <100ms latency for smooth scrolling
+### Uncertainty Indicators (novel opportunity)
+
+**Current state of art:** No consumer teleprompter shows uncertainty or match quality.
+
+**Opportunity from related domains:**
+- Karaoke systems show real-time scoring
+- Captioning research: "confidence score above 0.7 indicates strong match"
+- Research shows optimal threshold of 0.93 for high confidence
+
+**Potential implementations:**
+- Color gradient on cue indicator: green (high confidence) to yellow (uncertain)
+- Subtle animation when tracking vs. holding
+- Visual "anchor" showing last high-confidence match point
+
+**Recommendation:**
+- Don't show numeric scores (confusing)
+- Use subtle visual cues: cue indicator style/color changes with confidence
+- Show clear "holding position" state when uncertain
+
+### Position Anchoring
+
+**Best practice from professional teleprompters:**
+- "Most anchors wanted the current line to hit the top 1/3 of the screen as they were about to say it"
+- "Aim to read the script lines as they appear at the top of the screen rather than waiting for them to move towards the middle"
+
+**Why top-third works:**
+- Closer to camera lens (better eye contact)
+- Gives visual preview of upcoming text
+- Natural reading flow (top-to-bottom)
+
+**User's stated requirement:** "Next words to speak always at a fixed spot on screen (near caret)"
+
+**Recommendation:**
+- Fixed cue position at user-configurable point (default: top third)
+- Smooth scroll to keep current position at cue
+- Never scroll past cue position (always show what's coming next)
+
+## Anti-Patterns
+
+### Frustrating Teleprompter Behaviors
+
+| Anti-Pattern | User Impact | Prevalence | How to Avoid |
+|--------------|-------------|------------|--------------|
+| **Greedy forward matching** | Loses user's place, forces restart | Very common | Weight matches by proximity, require confirmation for jumps |
+| **No recovery mechanism** | User stuck when tracking fails | Common | Manual override, tap-to-position, scroll back support |
+| **Jarring scroll jumps** | Disorienting, loses reading flow | Common | Smooth interpolation, animate between positions |
+| **Monotonous fixed speed** | Unnatural delivery, stress | Common | Adaptive speed matching |
+| **Silent failures** | User doesn't know tracking is lost | Common | Clear visual state indicators |
+| **Aggressive timeouts** | Requires manual restart after pause | Speakflow (15s) | Long/infinite hold, automatic resume |
+| **Blame-the-user workarounds** | "Rewrite your script to avoid repeated phrases" | PromptSmart | Handle repeats algorithmically |
+| **All-or-nothing matching** | Either perfect match or nothing | Common | Fuzzy matching, partial confidence |
+
+### Environmental Sensitivity
+
+**Problems:**
+- "In a room with wood floors and windows, voice tracking can freeze up"
+- "Stay within 5 feet of the iPad for better voice tracking"
+- Background noise, echo, reverberation degrade matching
+
+**Recommendations:**
+- Graceful degradation: fall back to manual scroll
+- Clear feedback when audio quality is poor
+- Don't require perfect match for basic tracking
+
+### User Expectations vs. Reality
+
+**Users expect:** "An intelligent assistant who actually listens and adapts to your speaking style"
+
+**Reality:** Most apps are brittle, fail on edge cases, require workarounds
+
+**Key gap:** No consumer product handles repeated phrases well. This is the primary opportunity.
+
+## Feature Priority for Rewrite
+
+### Must Have (Table Stakes)
+
+1. **Pause-and-hold** - Stop scrolling on silence, hold position
+2. **Resume on return** - Automatic tracking resume when speech detected
+3. **Fixed cue position** - Next words always at configurable screen position
+4. **Never scroll ahead** - Cue position is hard limit, no overshooting
+5. **Speed adaptation** - Match scroll speed to speech pace
+
+### Should Have (Expected from Voice-Tracking)
+
+1. **Positional context** - Use current position to disambiguate matches
+2. **Skip confirmation** - Require multiple words before large jumps
+3. **Visual state feedback** - Clear indication of tracking vs. holding
+4. **Graceful off-script handling** - Hold position, resume cleanly
+
+### Nice to Have (Differentiators)
+
+1. **Word-level visual feedback** - Show which words were matched
+2. **Confidence visualization** - Subtle indication of match quality
+3. **Manual position override** - Tap/scroll to reposition without breaking tracking
+4. **Backward navigation** - Allow user to go back (with explicit trigger)
 
 ## Sources
 
-### Voice-Controlled Teleprompter Products
-- [PromptSmart](https://promptsmart.com/) - Leading voice-activated teleprompter with VoiceTrack technology
-- [Speakflow](https://www.speakflow.com/) - Online teleprompter with voice and remote control
-- [PromptSmart Features](https://promptsmart.com/how-it-works) - VoiceTrack technical details
-- [Voice-Activated Teleprompter Guide](https://telepromptermirror.com/voice-activated-teleprompter/) - Free software comparison
+### Primary Competitors Analyzed
 
-### Teleprompter App Reviews and Comparisons
-- [Best Teleprompter Apps 2026 - Setapp](https://setapp.com/app-reviews/best-teleprompter-apps)
-- [Best Teleprompter Apps - OpusClip](https://www.opus.pro/blog/best-teleprompter-apps-for-creators)
-- [Teleprompter Pro Features](https://teleprompterpro.com/features)
-- [10 Best Teleprompter Apps - Evelize](https://evelize.com/blog/10-best-teleprompter-apps-for-content-creators)
+- [PromptSmart Pro](https://apps.apple.com/us/app/promptsmart-pro-teleprompter/id894811756) - VoiceTrack technology
+- [PromptSmart Help & Optimization](https://www.tumblr.com/promptsmart/173007383876/voicetrack-101-optimization) - Detailed optimization guidance
+- [Speakflow Guide](https://www.speakflow.com/guide) - Flow mode documentation
+- [Autoscript Voice](https://autoscript.tv/voice/) - Broadcast-grade voice tracking
+- [Teleprompter.com Voice Scroll](https://www.teleprompter.com/blog/voice-scroll-teleprompter-app-new-feature) - Voice scroll feature
+- [Teleprompter Pro Cue Indicator](https://guide.teleprompterpro.com/teleprompter/cue-indicator/) - UX patterns
 
-### Common Problems and User Feedback
-- [Common Teleprompter Issues - Foxcue](https://foxcue.com/blog/common-teleprompter-issues-and-quick-resolutions/)
-- [Teleprompter Troubleshooting](https://www.teleprompter.com/blog/teleprompter-troubleshooting-tips)
-- [Why I Regret Buying a Teleprompter - Medium](https://medium.com/@speakingpen/why-i-regret-buying-a-teleprompter-8-shocking-reasons-378d312eb8a0)
+### User Feedback Sources
 
-### Technical Specifications
-- [Teleprompter Display Settings Guide](https://www.teleprompter.com/blog/teleprompter-app-settings-guide-for-perfect-video-recording)
-- [Text Formatting Requirements](https://guide.teleprompterpro.com/scripts/formatting/)
-- [Voice Recognition Challenges - IEEE](https://ieeexplore.ieee.org/document/10417877/) - Academic research on voice-activated teleprompters
+- [PromptSmart Customer Reviews](https://appcustomerservice.com/app/894811756/promptsmart-pro-teleprompter) - User complaints and issues
+- [Teleprompter Pro Reviews](https://justuseapp.com/en/app/941070561/teleprompter-premium/reviews) - User frustrations
+- [Common Teleprompter Troubles](https://foxcue.com/blog/common-teleprompter-issues-and-quick-resolutions/) - Industry overview
 
-### Web-Based Teleprompters
-- [Free Online Teleprompters - TeleprompterMirror](https://telepromptermirror.com/telepromptersoftware.htm)
-- [CuePrompter](https://cueprompter.com) - Free web-based teleprompter
-- [EasyPrompter](https://www.easyprompter.com/) - Browser-based teleprompter
+### Technical Background
 
----
-*Feature research for: AI Voice-Controlled Teleprompter (Web Application)*
-*Researched: 2026-01-22*
-*Confidence: MEDIUM-HIGH (verified with multiple product sources and user feedback)*
+- [NVIDIA Forced Alignment](https://research.nvidia.com/labs/conv-ai/blogs/2023/2023-08-forced-alignment/) - How forced alignment works
+- [Monotonic Alignment Search](https://github.com/tts-hub/monotonic_alignment_search) - Alignment algorithms
+- [PyTorch Forced Alignment Tutorial](https://docs.pytorch.org/audio/main/tutorials/forced_alignment_tutorial.html) - Implementation details
+- [Speech-to-Text Alignment for Dysarthric Speech](https://link.springer.com/article/10.1007/s00034-020-01419-5) - Handling repetition detection
+- [Confidence Scores in Speech Recognition](https://arxiv.org/html/2410.20564v1) - Using confidence for error detection
+- [Microsoft Captioning Concepts](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/captioning-concepts) - Real-time alignment
+
+### UX and Reading Position
+
+- [Working with a Teleprompter Tips](https://thomasjfrank.com/creator/working-with-a-teleprompter/) - Reading position best practices
+- [Camera and Teleprompter Positioning](https://creativecow.net/forums/thread/camera-and-teleprompter-positioning/) - Eye line considerations
+- [How to Read Naturally](https://www.teleprompter.com/blog/how-to-read-a-teleprompter-naturally-and-engage-your-audience) - UX guidance

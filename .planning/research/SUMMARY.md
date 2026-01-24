@@ -1,301 +1,315 @@
-# Project Research Summary
+# Position-Tracking Rewrite Research Summary
 
-**Project:** AI Voice-Controlled Teleprompter Web Application
-**Domain:** Real-time speech recognition with semantic text matching
-**Researched:** 2026-01-22
+**Project:** Voice-Controlled Teleprompter v1.1 - Position-Tracking Rewrite
+**Domain:** Real-time speech-to-text alignment for voice-controlled scrolling
+**Researched:** 2026-01-24
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Voice-controlled teleprompters coordinate multiple real-time systems (speech recognition, text matching, scroll control) while handling the inherent uncertainty of speech input. The key architectural insight is to separate concerns cleanly: audio capture produces uncertain data, matching resolves uncertainty, and UI reacts only to high-confidence positions. The recommended approach uses Web Speech API for free, real-time transcription, semantic matching (dice-coefficient or fuse.js) to handle paraphrasing, and confidence-based scroll control to prevent jittery behavior.
+The v1.1 rewrite addresses fundamental architectural flaws in v1.0's position-tracking implementation. The core problem: v1.0 conflated matching (finding words), position management (deciding what's confirmed), and scroll control (displaying text) into tangled components with 15+ interdependent parameters. The result was "too sensitive AND not sensitive enough" - jumping ahead on repeated phrases while simultaneously failing to track natural reading.
 
-The critical differentiator is semantic matching over exact word matching. Competitors like PromptSmart use exact matching that breaks when users paraphrase; semantic matching with positional validation handles natural speech variations while avoiding false jumps. The tech stack is straightforward: Vite 8 + React 19 + TypeScript for structure, Web Speech API for transcription (88% browser coverage), dice-coefficient for lightweight fuzzy matching. No backend needed—everything runs client-side.
+The research reveals a clear path forward: implement a **distance-weighted scoring algorithm** combined with a **two-position model** (confirmed floor + candidate ceiling) within a **clean pipeline architecture** (WordMatcher → PositionTracker → ScrollController). This approach is grounded in established alignment algorithms (forced alignment, monotonic constraints) and validated by competitor analysis showing that professional systems (Autoscript Voice) use positional context as the primary disambiguation mechanism.
 
-Key risks center on Web Speech API reliability and matching algorithm tuning. The API stops unexpectedly despite continuous mode, requiring automatic restart logic. Interim results create false matches and must be filtered. Semantic matching without positional context causes jumps to wrong sections. Error handling is critical—permission denial, network issues, and browser incompatibility affect 10-20% of users. The roadmap must address these systematically through phased implementation starting with rock-solid basics before adding intelligence.
+The critical insight: position tracking is a *confirmation* problem, not a *prediction* problem. When you predict where the user will be, you inevitably get ahead of them. When you confirm where they are, you stay in sync. The rewrite eliminates speculative position updates, state machine complexity, and parameter explosion in favor of reactive scrolling that follows confirmed speech only.
 
 ## Key Findings
 
-### Recommended Stack
+### Recommended Algorithm
 
-The stack prioritizes speed to working prototype with proven technologies. Vite 8 provides 40% faster builds with Rolldown bundler. React 19.2 offers mature ecosystem but vanilla JS is viable for this scope. Web Speech API is the obvious choice for free, real-time STT (Chrome/Edge use Google's servers, Safari uses on-device). Transformers.js is optional fallback for Firefox/offline mode but adds 50-200MB model size.
+**Distance-Weighted Scoring** (from ALGORITHMS.md)
 
-**Core technologies:**
-- **Vite 8**: Build tool with Rolldown-powered builds, fastest dev server, minimal config
-- **React 19.2**: UI framework with mature ecosystem, though vanilla JS acceptable for simple teleprompter UI
-- **TypeScript**: Type safety prevents bugs as complexity grows, especially for speech recognition callbacks
-- **Web Speech API**: Browser-native STT, free, zero-latency interim results, 88% coverage (Chrome/Edge/Safari)
-- **dice-coefficient**: Semantic text matching for paraphrasing, 700 bytes, pure algorithm (vs. fuse.js 3KB for more features)
+The core innovation: combine fuzzy match quality with positional proximity into a unified relevance score. This solves the "repeated phrases" problem that plagued v1.0 by making position intrinsic to match confidence rather than a post-processing filter.
 
-**Critical constraint satisfaction:**
-- Free AI: Web Speech API completely free (browser's built-in STT)
-- Web-only: All browser-native APIs, no desktop packaging needed
-- No backend: 100% client-side (STT in browser, localStorage for scripts, static hosting only)
+```javascript
+FinalScore = FuzzyScore * PositionalWeight
 
-**Version requirements:**
-- Vite 8 with Rolldown (breaking changes from v5, check migration)
-- React 19+ for Actions API (optional)
-- Web Speech API requires Chrome 25+, Edge, Safari 14.1+ (webkit prefix), Firefox NOT supported
+Where:
+  FuzzyScore = 1 - (LevenshteinDistance / MaxLength)
+  PositionalWeight = 1 / (1 + |distance| * DecayFactor)
+```
+
+**Key parameters:**
+- `fuzzyThreshold: 0.7` - Minimum match quality to consider
+- `decayFactor: 0.1` - Distance penalty (15 words away = 40% weight reduction)
+- `searchRadius: 50` - How far to search (~20% of script)
+- `requireConsecutive: 2` - Minimum consecutive matches for confidence
+
+**Two-Position Model:**
+- `confirmedPosition` - Highest word index where user definitely has been (monotonic, never decreases)
+- `candidatePosition` - Where we think user currently is (can be speculative)
+- Scroll boundary: never exceed `confirmedPosition + buffer` (typically 3 words)
+
+This prevents the "getting ahead" problem by hard-limiting scroll position to confirmed speech regardless of candidate matches.
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Script input (paste/import) — can't be a prompter without content
-- Adjustable scroll speed — manual control baseline expectation
-- Text size/color control — reading distance varies by setup
-- Dark background — professional broadcast standard
-- Pause/resume control — users need to stop and restart
-- Script persistence — localStorage minimum, don't lose work
-- Fullscreen mode — maximize screen real estate
-- Mirror/flip text — hardware prompter compatibility
+- Pause-and-hold - Stop scrolling on silence, hold position indefinitely
+- Resume on return - Automatic tracking when speech detected (no manual restart)
+- Fixed cue position - Next words always at configurable screen position (default: top 1/3)
+- Never scroll ahead - Cue position is hard limit, display never races past user
+- Speed adaptation - Scroll speed matches observed speaking pace
 
 **Should have (competitive advantage):**
-- **Semantic speech matching** — CORE DIFFERENTIATOR, handles paraphrasing not just exact words
-- Intelligent pause detection — knows off-script vs. just pausing (confidence-based)
-- Skip-ahead detection — auto-jumps when user skips sections (semantic matching enables)
-- Visual confidence feedback — shows when AI is confident vs. uncertain
-- Zero configuration — works immediately without calibration (beats PromptSmart's optimization requirements)
-- Graceful degradation — smooth behavior when recognition uncertain (no erratic jumping)
+- Positional context awareness - Use current position to disambiguate repeated phrases
+- Skip confirmation - Require consecutive words before accepting large position jumps
+- Visual state feedback - Clear indication of tracking vs. holding vs. paused
+- Graceful off-script handling - Hold position during ad-libs, resume cleanly
 
-**Defer (v2+):**
-- Multi-language support — complex to test, validate English-first
-- Speech model selection — premature optimization, start with one good model
-- Keyboard shortcuts — power user feature, validate with basic controls first
-- Script templates — need to understand user patterns first
-- Reading stats (WPM, time remaining) — nice-to-have, not core value
-- Teleprompter hardware mode — niche use case, validate software-only first
+**Defer (nice to have):**
+- Word-level visual feedback - Underline matched words in real-time (like Speakflow)
+- Confidence visualization - Subtle indicator of match quality
+- Manual position override - Tap/scroll without breaking tracking
+- Backward navigation - Explicit user trigger only, not automatic
 
-**Anti-features (commonly requested, problematic):**
-- Perfect word-for-word tracking — forces robotic delivery, breaks on deviation
-- Cloud script sync — adds auth/backend/costs, against free constraint
-- Video recording integration — scope creep, many better dedicated tools exist
-- Multi-user collaboration — requires backend, auth, real-time sync infrastructure
-- Offline speech recognition — browser APIs require internet, local models too large for web
+**Anti-features (avoid):**
+- Greedy forward matching without positional constraints
+- Binary match/no-match with no uncertainty handling
+- Aggressive timeouts requiring manual restart
+- Fixed scroll speed that doesn't adapt to pace
+- Symmetric forward/backward skip handling
 
 ### Architecture Approach
 
-The architecture separates audio capture, text matching, and UI control into independent services connected through centralized state management. Speech recognition produces uncertain data via event handlers. Text matcher resolves uncertainty using sliding window search (200 words before/after current position for performance). Scroll controller implements confidence-based state machine (scroll/pause/jump decisions based on confidence thresholds). React hooks provide clean facade between services and components.
+The v1.1 architecture implements a **clean separation of concerns** via a pipeline where each component has a single responsibility:
 
 **Major components:**
-1. **Speech Recognition Service** — Web Speech API wrapper, handles continuous recognition with auto-restart on speechend
-2. **Text Matcher Service** — Sliding window search with Levenshtein/dice-coefficient, returns position + confidence score
-3. **Scroll Controller Service** — State machine for scroll decisions, smooths over confidence history to prevent jitter
-4. **Application State (Zustand)** — Single source of truth: script content, position, recognition status, scroll state
-5. **Teleprompter Display** — Pure presentation component with GPU-accelerated smooth scrolling
-6. **Script Editor** — Input/edit interface with localStorage persistence
 
-**Critical patterns:**
-- Event-driven speech recognition (API is inherently event-based)
-- Sliding window text matching (fast for long scripts, prevents false positives from distant matches)
-- Confidence-based state machine (prevents jumpy scroll from interim results)
-- React hook facade (keeps services framework-agnostic and testable)
+1. **WordMatcher** (stateless) - Pure matching function that searches for phrase matches within a position range and returns scored candidates. No knowledge of current position or history.
 
-**Data flow:** User speaks → Web Speech API → Recognition Service emits event → Text Matcher performs sliding window search → Scroll Controller decides (scroll/pause/jump) based on confidence → State updates → Display re-renders with smooth scroll
+2. **PositionTracker** (stateful core) - Maintains `confirmedPosition` as single source of truth. Receives match candidates, applies acceptance rules (proximity bias, skip limits, consecutive confirmation), updates confirmed position only when confident. Emits events on position changes.
+
+3. **ScrollController** (reactive display) - Listens for position confirmations, calculates scroll position to place confirmed position at caret, applies smooth animation. Never scrolls ahead of confirmed position boundary.
+
+**Data flow:**
+```
+Speech Input → SpeechRecognizer → WordMatcher → PositionTracker → ScrollController → DOM scroll
+```
+
+**Integration with existing code:**
+- **Keep:** SpeechRecognizer, AudioVisualizer, Highlighter, textUtils, Fuse.js - all working well
+- **Replace:** TextMatcher → WordMatcher (make stateless), ScrollSync → PositionTracker + ScrollController (split concerns)
+- **Remove:** ConfidenceLevel.js (absorbed into PositionTracker), complex state machine, 15+ parameters
 
 ### Critical Pitfalls
 
-1. **Web Speech API stops unexpectedly** — Even with continuous=true, API stops on speechend. Implement auto-restart on speechend and end events with state tracking (user intentional stop vs. engine timeout). Test continuous operation for 10+ minutes.
+Based on v1.0 failure analysis and domain research:
 
-2. **Interim results create false matches** — Constantly changing interim transcripts cause erratic scrolling. Use interimResults=false OR only match on isFinal results. Show interim results in "listening..." indicator only, never for position matching.
+1. **Speculative position updates** - v1.0 updated position immediately on match, then tried to constrain scroll. Solution: Only update `confirmedPosition` on high-confidence matches; scroll never exceeds confirmed boundary.
 
-3. **Semantic matching without validation** — Pure semantic matching finds similar content anywhere in script, causes false jumps. Combine with positional bias (weight near matches higher), sequence validation (require multiple consecutive matches), confidence thresholds (reject low confidence), direction constraints (prevent backward jumps unless explicit).
+2. **Ignoring positional context** - v1.0 searched in priority order but didn't weight matches by distance. Solution: Make distance intrinsic to match scoring via `PositionalWeight = 1 / (1 + distance * DecayFactor)`.
 
-4. **Latency accumulation** — Multiple processing steps accumulate: transcription (300ms) + semantic matching (200ms) + confidence scoring (100ms) + scroll animation (200ms) = 800ms breaks real-time feel. Optimize critical path: exact string matching first (1-5ms), debounce semantic matching to final results only, precompute script embeddings, use Web Workers for heavy computation, CSS smooth-scroll instead of JS animation.
+3. **Parameter explosion** - v1.0 accumulated 15+ tunable parameters as band-aids on fundamental model problems. Solution: Derive behavior from observed speech characteristics (pace, match quality, position) rather than expose configuration knobs.
 
-5. **No error recovery strategy** — When speech recognition fails (network, permission denied, language pack missing), app becomes unusable. Implement graceful degradation for every error type: network (retry with backoff), not-allowed (show manual mode + help), no-speech (auto-restart), audio-capture (show error + manual mode), language-not-supported (install language pack).
+4. **State machine complexity** - v1.0's CONFIDENT/UNCERTAIN/OFF_SCRIPT states represented system confidence, not user behavior. Solution: Simple reactive model (match found → scroll, no match → hold) without state transitions.
 
-6. **Microphone permission UX disaster** — Immediate permission prompt on page load without context = high denial rate. Progressive permission request: show onboarding first, request on user action (click "Start Voice Control"), explain why mic needed, provide manual mode for denial.
-
-7. **Testing only with clean audio** — Works in quiet office with good mic and perfect scripts, fails in production with background noise, poor mics, accents, typos. Test systematically with: noisy environments, cheap microphones, varied speakers, real scripts (copied from Word with formatting issues), edge cases (pauses, filler words, repeated words).
+5. **Equal treatment of all directions** - v1.0 allowed backward skips with higher threshold, but repeated phrases still caused backward jumps. Solution: Forward movement is automatic with positional bias; backward requires explicit user action or much stronger consecutive confirmation.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure follows dependency order from architecture:
+Based on research, suggested phase structure for the rewrite:
 
-### Phase 1: Core Display & Manual Control
-**Rationale:** Establish UI foundation before adding complex speech recognition. Must work perfectly as manual teleprompter first.
+### Phase 1: WordMatcher (Pure Matching Foundation)
 
-**Delivers:**
-- Script editor with paste/import
-- Teleprompter display with manual scroll
-- Text size/color/speed controls
-- Dark theme
-- Fullscreen mode
-- localStorage persistence
-
-**Addresses features:** Script input, adjustable scroll speed, text size control, dark background, pause/resume, script persistence, fullscreen
-
-**Avoids pitfalls:** Testing with varied scripts (use real-world examples with formatting issues)
-
-**Research needed:** NO — standard web UI patterns, well-documented
-
-### Phase 2: Speech Recognition Foundation
-**Rationale:** Get speech recognition working in isolation before adding matching complexity. Validate Web Speech API reliability and error handling.
+**Rationale:** Start with the stateless foundation. Extract matching logic from TextMatcher, remove all position tracking, make it a pure function. This isolates fuzzy matching concerns and provides a testable unit.
 
 **Delivers:**
-- Web Speech API wrapper with event handling
-- Microphone permission flow (progressive request with explanation)
-- Auto-restart on speechend/end events
-- Error recovery for all error types
-- Manual mode fallback
-- Visual listening state indicator
-- Raw transcript display (debugging)
+- WordMatcher.js with `findCandidates(spokenWords, searchRange)` method
+- Position-constrained search (don't search entire script)
+- Distance-weighted scoring implementation
+- Consecutive match requirement
 
-**Addresses features:** Zero configuration (auto-restart), graceful degradation (error handling)
+**Addresses:**
+- Positional context awareness (position-weighted scoring)
+- Foundation for handling repeated phrases
 
-**Avoids pitfalls:**
-- Web Speech API stops unexpectedly (auto-restart)
-- No error recovery (comprehensive error handler)
-- Permission UX disaster (progressive request)
-- Testing only with clean audio (test with background noise)
+**Avoids:**
+- Mixing matching and position tracking concerns
+- Fuzzy matching without boundaries
 
-**Research needed:** NO — Web Speech API is well-documented, error types are known
+**Research needed:** None - fuzzy matching patterns are well-established (Fuse.js, Levenshtein)
 
-### Phase 3: Basic Text Matching
-**Rationale:** Prove matching concept with simplest algorithm first (exact string matching or Levenshtein). Establish performance baseline before adding semantic layer.
+### Phase 2: PositionTracker (Confirmation Logic)
+
+**Rationale:** This is the brain of the rewrite. Implements the two-position model, acceptance rules, and confirmation logic. Must come after WordMatcher since it consumes match candidates.
 
 **Delivers:**
-- Text matcher service with Levenshtein/dice-coefficient
-- Exact substring match as fast path
-- Sliding window search (200-word window around current position)
-- Match confidence scoring
-- Simple "scroll to best match" logic (no intelligence yet)
+- PositionTracker.js with `confirmedPosition` as single source of truth
+- Two-position model (confirmed + candidate)
+- Acceptance rules (proximity bias, skip limits, consecutive confirmation)
+- Event emission on position changes
+- SkipDetector integrated (consecutive-word confirmation for large jumps)
 
-**Addresses features:** Semantic speech matching (basic version)
+**Addresses:**
+- Never scroll ahead (hard boundary at confirmedPosition + buffer)
+- Skip confirmation (require N consecutive matches for jumps > threshold)
+- Monotonic forward constraint (confirmedPosition only increases)
 
-**Avoids pitfalls:**
-- Interim results create false matches (only match on isFinal)
-- Performance with long scripts (sliding window)
-- Latency accumulation (exact match fast path)
+**Avoids:**
+- Speculative position updates
+- State machine complexity
+- Predictive vs. reactive scrolling pitfall
 
-**Research needed:** MAYBE — Sliding window implementation and confidence scoring tuning may need experimentation
+**Research needed:** Minimal - test skip confirmation timing and consecutive count thresholds with real speech
 
-### Phase 4: Intelligent Scroll Control
-**Rationale:** Add intelligence after basic matching works. Polish UX with confidence-based decisions and smooth scrolling.
+### Phase 3: ScrollController (Reactive Display)
 
-**Delivers:**
-- Scroll controller state machine (idle/scrolling/paused/jumping)
-- Confidence-based decisions with thresholds
-- Confidence history smoothing (average last 5 results)
-- Distance-based behavior (smooth scroll nearby, instant jump far)
-- Speed calculation based on confidence + distance
-- Visual confidence feedback (highlight matched text, dim on low confidence)
-
-**Addresses features:** Intelligent pause detection, visual confidence feedback, graceful degradation
-
-**Avoids pitfalls:**
-- Interim results create false matches (state machine filters low confidence)
-- Hijacking scroll control (pause auto-scroll when user manually scrolls)
-
-**Research needed:** YES — Confidence threshold tuning requires real-world testing with varied speakers and conditions
-
-### Phase 5: Advanced Matching & Validation
-**Rationale:** Add semantic intelligence after basic system is solid. Only needed if exact matching proves insufficient.
+**Rationale:** Scroll behavior is completely dependent on confirmed positions from PositionTracker. Simplify by removing all matching logic, state machines, and complex speed calculations. Just react to position changes.
 
 **Delivers:**
-- Positional bias (weight nearby matches higher)
-- Sequence validation (require N consecutive matches before large jump)
-- Skip-ahead detection (detect when user jumps sections)
-- Direction constraints (prevent backward jumps unless explicit)
-- Fallback to full-script search when sliding window fails
+- ScrollController.js that subscribes to PositionTracker events
+- Scroll boundary enforcement (never exceed confirmed + buffer)
+- Pace-based speed adjustment (observed words per second)
+- Smooth scroll animation
+- Pause/resume without state transitions
 
-**Addresses features:** Skip-ahead detection, semantic speech matching (advanced)
+**Addresses:**
+- Fixed cue position (scroll to keep confirmed position at caret)
+- Speed adaptation (derive from observed pace)
+- Graceful off-script handling (just hold position when no confirmations)
 
-**Avoids pitfalls:**
-- Semantic matching without validation (positional context + confidence thresholds)
-- Testing only with clean audio (requires extensive real-world testing)
+**Avoids:**
+- Animation hiding logical problems (get position logic right first)
+- Insufficient silence handling (hold position on pause, no aggressive timeout)
 
-**Research needed:** YES — Semantic matching validation strategies need research and testing
+**Research needed:** None - scroll mechanics already working in v1.0
 
-### Phase 6: Polish & Optimization
-**Rationale:** Performance optimization and edge case handling after core functionality proven.
+### Phase 4: Integration and Migration
+
+**Rationale:** Wire up the new pipeline, remove old components, update script.js to use new architecture.
 
 **Delivers:**
-- Web Workers for text matching (if needed for long scripts)
-- Virtualized scrolling with react-window (if needed for very long scripts)
-- Browser compatibility polish (Safari webkit prefix, Firefox fallback message)
-- Performance optimization (precompute embeddings, cache results)
-- Edge case handling (filler words, stage directions, typos)
+- script.js updated to use WordMatcher → PositionTracker → ScrollController pipeline
+- Removal of TextMatcher.js, ScrollSync.js, ConfidenceLevel.js
+- Highlighter integration via PositionTracker events
+- Configuration simplified to 3-4 core parameters
 
-**Addresses features:** Browser compatibility, performance with long scripts
+**Addresses:**
+- Clean component boundaries
+- Event-driven communication (Observer pattern)
+- Single source of truth (confirmedPosition)
 
-**Avoids pitfalls:**
-- Blocking main thread with text matching (Web Workers)
-- Naive full-script search (indexing for performance)
-- Browser compatibility gaps (test all browsers)
+**Avoids:**
+- Bidirectional data flow
+- Mixed concerns in one class
 
-**Research needed:** NO — Standard web performance optimization patterns
+**Research needed:** None - integration patterns are straightforward
 
 ### Phase Ordering Rationale
 
-- **UI first, voice second:** Must work as manual teleprompter before adding voice control. Reduces complexity, enables testing with real scripts early.
-- **Basic before smart:** Exact matching before semantic matching. Prove simple algorithm first, measure where it fails, then add intelligence targeted at real problems.
-- **Error handling from start:** Not deferred to polish phase. Web Speech API errors are common (10-20% of users), must be handled in Phase 2 when introducing speech recognition.
-- **Confidence system central:** Phase 4's state machine is architectural fulcrum. Separates uncertain recognition from confident UI behavior.
-- **Performance last:** Optimize only after validating that basic approach works and identifying actual bottlenecks through testing.
+**Bottom-up implementation:**
+1. WordMatcher provides pure matching foundation (no dependencies)
+2. PositionTracker consumes WordMatcher output (depends on Phase 1)
+3. ScrollController consumes PositionTracker events (depends on Phase 2)
+4. Integration wires everything together (depends on Phases 1-3)
+
+**Why this order:**
+- Each phase delivers a testable unit before moving to dependent components
+- Matching logic can be unit-tested in isolation with mock transcripts
+- Position tracking can be tested with mock match candidates
+- Scroll behavior can be tested with mock position confirmations
+- Avoids "big bang" rewrite - incremental validation at each step
+
+**Dependency chain:** The pipeline architecture creates a natural ordering where each component has a clear input (from previous phase) and output (to next phase).
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
+**Phases with standard patterns (skip deep research):**
+- **Phase 1 (WordMatcher):** Fuzzy matching is well-documented, Fuse.js patterns established
+- **Phase 3 (ScrollController):** Scroll mechanics already working in v1.0
+- **Phase 4 (Integration):** Event-driven patterns are standard JavaScript
 
-- **Phase 4: Intelligent Scroll Control** — Confidence threshold tuning requires experimentation. No standard values, depends on Web Speech API behavior in 2026 and dice-coefficient scoring. Plan for iterative tuning with test users.
-- **Phase 5: Advanced Matching & Validation** — Semantic matching strategies vary widely. Need to research positioning bias algorithms and sequence validation approaches. May require testing multiple algorithms.
-
-Phases with standard patterns (skip research-phase):
-
-- **Phase 1: Core Display & Manual Control** — Standard React UI patterns, well-documented
-- **Phase 2: Speech Recognition Foundation** — Web Speech API thoroughly documented, error types known
-- **Phase 3: Basic Text Matching** — Levenshtein algorithms well-established, implementations available
-- **Phase 6: Polish & Optimization** — Standard web performance patterns
+**Phase needing empirical validation:**
+- **Phase 2 (PositionTracker):** Acceptance rule thresholds (skip confirmation count, consecutive requirements, position decay factor) need testing with real speech. Research provides starting values but may need tuning based on observed behavior. This is NOT parameter explosion - it's validating 3-4 core algorithmic constants.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All technologies verified via official docs (MDN, React.dev, Vite.dev). Web Speech API coverage 88% confirmed via caniuse.com. |
-| Features | MEDIUM-HIGH | Feature expectations verified with competitor analysis (PromptSmart, Speakflow). User pain points from community sources. Anti-features inferred from common requests. |
-| Architecture | MEDIUM-HIGH | Patterns verified with working examples (GitHub voice-activated teleprompter). State machine and sliding window standard algorithms. React patterns well-documented. |
-| Pitfalls | MEDIUM-HIGH | Critical pitfalls verified via MDN official docs and 2026 technical resources. UX pitfalls inferred from scrolljacking research and competitor reviews. |
+| Algorithms | HIGH | Distance-weighted scoring and two-position model are well-established in alignment research; algorithms include complete pseudocode |
+| Features | MEDIUM | Table stakes validated against multiple competitors; differentiators based on v1.0 gaps and user feedback; some edge cases need empirical testing |
+| Architecture | HIGH | Pipeline pattern, observer pattern, separation of concerns are proven software architecture; component boundaries clearly defined; integration points documented |
+| Pitfalls | HIGH | Based on v1.0 code analysis (actual implementation failures) plus domain research; failure modes well-understood from experience |
 
-**Overall confidence:** HIGH for Phase 1-3 (basic functionality), MEDIUM for Phase 4-5 (tuning and intelligence)
+**Overall confidence:** HIGH
+
+v1.0 provides concrete evidence of what doesn't work. Research provides established algorithms (forced alignment, monotonic constraints) and architectural patterns (pipeline, observer). The rewrite path is clear: replace speculative prediction with reactive confirmation, replace parameter explosion with derived behavior, replace tangled components with clean separation.
 
 ### Gaps to Address
 
-- **Confidence threshold values:** Research doesn't specify exact thresholds for scroll/pause/jump decisions. Must be determined experimentally in Phase 4 with real users and varied conditions.
+**Algorithmic tuning:**
+- Starting values for decayFactor (0.1), skipThreshold (10), requiredConfirmations (2) are research-based but need validation with diverse content (not just Gettysburg Address)
+- Test with: speeches with numbers, technical documents, poems with repeated lines, unusual names
+- Measurement: latency (<300ms target), false positive rate (<5%), false negative rate (<5%)
 
-- **Semantic matching algorithm choice:** Research presents dice-coefficient and fuse.js as options but doesn't conclusively recommend one. Phase 3 should test both with realistic scripts to measure accuracy vs. performance trade-offs.
+**Edge case validation:**
+- Font size changes mid-read (express scroll targets in word positions, not pixels)
+- Web Speech API timing inconsistencies (design for asynchronous, potentially contradictory input)
+- Script content variations (numbers as digits vs. words, abbreviations, technical terms)
 
-- **Browser-specific behavior:** Web Speech API behavior may vary between Chrome/Edge (Google servers) and Safari (on-device). Need browser-specific testing in Phase 2 to identify quirks.
+**User experience refinement:**
+- Visual state feedback (tracking vs. holding vs. paused) - research suggests subtle cue indicator changes
+- Confidence visualization (optional) - avoid numeric scores, use color/animation
+- Manual override mechanism - needed but not specified in detail
 
-- **Performance targets:** Research mentions sliding window for scripts > 5000 words but doesn't specify performance targets. Phase 3 should establish baseline (e.g., "< 100ms match time for real-time feel") based on actual implementation.
-
-- **Interim results strategy:** Research says "don't use for matching" but doesn't specify if they should be shown to users for feedback. Phase 2 should test whether showing interim results improves perceived responsiveness without causing confusion.
+**These gaps are manageable:**
+- Algorithmic tuning is empirical validation, not research (run UAT with diverse scripts)
+- Edge cases are implementation details, not architectural unknowns
+- UX refinement can happen after core algorithm proves stable
 
 ## Sources
 
-### Primary (HIGH confidence)
-- [Web Speech API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API) — API specification and usage patterns
-- [Speech Recognition Browser Support - Can I Use](https://caniuse.com/speech-recognition) — 88% browser coverage verification
-- [Transformers.js v3 Documentation](https://huggingface.co/docs/transformers.js/) — Optional semantic matching fallback
-- [React 19.2 Release Notes](https://react.dev/blog/2025/10/01/react-19-2) — Latest React features
-- [Vite 8 Beta Announcement](https://vite.dev/blog/announcing-vite8-beta) — Rolldown bundler details
-- [dice-coefficient on npm](https://www.npmjs.com/package/dice-coefficient) — Lightweight matching algorithm
-- [fuse.js on npm](https://www.npmjs.com/package/fuse.js) — Alternative fuzzy matching
-- [fastest-levenshtein npm](https://www.npmjs.com/package/fastest-levenshtein) — Performance-optimized distance calculation
+### Algorithms (HIGH confidence)
 
-### Secondary (MEDIUM confidence)
-- [PromptSmart](https://promptsmart.com/) — Leading competitor analysis (VoiceTrack exact matching approach)
-- [Speakflow](https://www.speakflow.com/) — Competitor feature comparison
-- [Voice-Activated Teleprompter GitHub](https://github.com/jlecomte/voice-activated-teleprompter) — Real implementation example
-- [Top APIs for real-time STT 2026 - AssemblyAI](https://www.assemblyai.com/blog/best-api-models-for-real-time-speech-recognition-and-transcription) — Ecosystem survey
-- [State Management in 2026 - Nucamp](https://www.nucamp.co/blog/state-management-in-2026-redux-context-api-and-modern-patterns) — React state patterns
-- [Top 7 Speech Recognition Challenges 2026 - AIMultiple](https://research.aimultiple.com/speech-recognition-challenges/) — Domain pitfalls
-- [Fuzzy Matching 101 - MatchDataPro](https://matchdatapro.com/fuzzy-matching-101-a-complete-guide-for-2026/) — Matching techniques
+**Positional scoring:**
+- [Distance matters! Cumulative proximity expansions for ranking documents](https://link.springer.com/article/10.1007/s10791-014-9243-x) - Term proximity scoring theory
+- [Algolia Ranking Criteria](https://www.algolia.com/doc/guides/managing-results/relevance-overview/in-depth/ranking-criteria/) - Practical proximity ranking
+- [Observable: Distance-weighted proximity score](https://observablehq.com/@abenrob/distance-weighted-proximity-score/2) - Inverse quadratic decay
 
-### Tertiary (LOW confidence - needs validation)
-- [Voice Scroll Feature - Teleprompter.com](https://www.teleprompter.com/blog/voice-scroll-teleprompter-app-new-feature) — Marketing content describing smooth scrolling
-- [Best Teleprompter Apps 2026 - Setapp](https://setapp.com/app-reviews/best-teleprompter-apps) — User feature expectations
-- [Common Teleprompter Issues - Foxcue](https://foxcue.com/blog/common-teleprompter-issues-and-quick-resolutions/) — User pain points
+**Alignment algorithms:**
+- [Smith-Waterman Algorithm](https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm) - Local sequence alignment
+- [Monotonic Alignment for TTS](https://arxiv.org/html/2409.07704v1) - Forward-only constraint
+- [NVIDIA Forced Alignment](https://research.nvidia.com/labs/conv-ai/blogs/2023/2023-08-forced-alignment/) - Audio-text synchronization
+
+**Fuzzy matching:**
+- [Fuse.js Scoring Theory](https://www.fusejs.io/concepts/scoring-theory.html) - Fuzzy search internals
+- [Hypothesis Fuzzy Anchoring](https://web.hypothes.is/blog/fuzzy-anchoring/) - Position-aware text anchoring
+
+### Features (MEDIUM confidence)
+
+**Competitor analysis:**
+- [PromptSmart Pro](https://apps.apple.com/us/app/promptsmart-pro-teleprompter/id894811756) - VoiceTrack technology
+- [PromptSmart Help](https://www.tumblr.com/promptsmart/173007383876/voicetrack-101-optimization) - Edge case workarounds
+- [Speakflow Guide](https://www.speakflow.com/guide) - Flow mode documentation
+- [Autoscript Voice](https://autoscript.tv/voice/) - Broadcast-grade tracking
+
+**User feedback:**
+- [PromptSmart Reviews](https://appcustomerservice.com/app/894811756/promptsmart-pro-teleprompter) - Repeated phrase failures
+- [Common Teleprompter Issues](https://foxcue.com/blog/common-teleprompter-issues-and-quick-resolutions/) - Industry pain points
+
+### Architecture (HIGH confidence)
+
+**Patterns:**
+- [Game Programming Patterns: State](https://gameprogrammingpatterns.com/state.html) - State management
+- [Observer Pattern in JavaScript](https://medium.com/@artemkhrenov/the-observer-pattern-in-modern-javascript-building-reactive-systems-9337d6a27ee7) - Event-driven systems
+- [Pipeline Pattern](https://dev.to/wallacefreitas/the-pipeline-pattern-streamlining-data-processing-in-software-architecture-44hn) - Data transformation chains
+- [Separation of Concerns](https://www.geeksforgeeks.org/software-engineering/separation-of-concerns-soc/) - Architectural principle
+
+### Pitfalls (HIGH confidence)
+
+**v1.0 codebase analysis:**
+- `/Users/brent/project/matching/TextMatcher.js` - Proximity search without position weighting
+- `/Users/brent/project/matching/ScrollSync.js` - State machine with 15+ parameters
+- `/Users/brent/project/matching/ConfidenceLevel.js` - Multi-factor confidence calculation
+- `/Users/brent/project/.planning/PROJECT.md` - v1.0 failure documentation
+
+**Domain research:**
+- [Forced Alignment Challenges](https://www.futurebeeai.com/knowledge-hub/forced-alignment-speech) - Alignment fundamentals
+- [Confidence Score Pitfalls](https://www.mindee.com/blog/how-use-confidence-scores-ml-models) - Threshold tuning
+- [Speech Rate Estimation](https://pmc.ncbi.nlm.nih.gov/articles/PMC2860302/) - Pace calculation
 
 ---
-*Research completed: 2026-01-22*
-*Ready for roadmap: yes*
+
+*Research completed: 2026-01-24*
+*Ready for roadmap: Yes*

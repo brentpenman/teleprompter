@@ -1,772 +1,428 @@
-# Architecture Research: Voice-Controlled Teleprompter
+# Position-Tracking Architecture
 
-**Domain:** Real-time voice-tracking teleprompter web application
-**Researched:** 2026-01-22
-**Confidence:** MEDIUM-HIGH
+**Domain:** Voice-controlled teleprompter position tracking
+**Researched:** 2026-01-24
+**Confidence:** HIGH
 
 ## Executive Summary
 
-Voice-controlled teleprompters require coordinating multiple real-time systems: speech recognition, text matching, position tracking, and scroll control. The architecture must handle the inherent uncertainty of speech recognition (pauses, paraphrasing, false starts) while maintaining smooth visual feedback.
+The v1.0 architecture conflates three distinct responsibilities into a tangled mess: word matching, position tracking, and scroll control all intermixed in TextMatcher and ScrollSync. The v1.1 architecture should cleanly separate these into a **pipeline** where each component has a single job:
 
-**Key architectural insight:** Separate concerns cleanly between audio capture, text matching, and UI control. The speech recognition system produces uncertain data; the matching system resolves uncertainty; the UI reacts to high-confidence positions only.
+1. **WordMatcher** - Given speech, find candidate word positions (pure matching, no state)
+2. **PositionTracker** - Maintain confirmed position, decide whether to accept candidates (stateful)
+3. **ScrollController** - Convert confirmed position to scroll actions (reactive, no matching logic)
 
-## Standard Architecture Pattern
+The key architectural insight: **confirmed position is the single source of truth**. Matching produces candidates. Position tracking decides acceptance. Scrolling reacts to confirmed position changes. This separation makes each component simple to reason about and tune independently.
 
-### System Overview
+## Component Design
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     PRESENTATION LAYER                       │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Teleprompter│  │   Script     │  │   Controls   │      │
-│  │    Display   │  │    Editor    │  │    Panel     │      │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         │                  │                  │              │
-├─────────┴──────────────────┴──────────────────┴──────────────┤
-│                      STATE MANAGEMENT                        │
-├─────────────────────────────────────────────────────────────┤
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │         Application State (Zustand/Redux)              │  │
-│  │  - Script content and structure                        │  │
-│  │  - Current scroll position                             │  │
-│  │  - Confidence scores                                   │  │
-│  │  - Recognition status                                  │  │
-│  └──────────────────────┬────────────────────────────────┘  │
-│                         │                                    │
-├─────────────────────────┴────────────────────────────────────┤
-│                     PROCESSING LAYER                         │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Speech     │  │    Text      │  │    Scroll    │      │
-│  │ Recognition  │→ │   Matcher    │→ │  Controller  │      │
-│  │   Service    │  │   Service    │  │   Service    │      │
-│  └──────┬───────┘  └──────────────┘  └──────────────┘      │
-│         │                                                    │
-├─────────┴────────────────────────────────────────────────────┤
-│                     BROWSER APIs                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Web Speech API  |  MediaStream  |  AudioContext    │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+### 1. WordMatcher (Pure Function, Stateless)
 
-### Component Responsibilities
+**Responsibility:** Given spoken words and a search window, return candidate match positions with quality scores.
 
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| **Speech Recognition Service** | Captures audio, produces transcripts with timestamps | Web Speech API wrapper with event handling |
-| **Text Matcher Service** | Matches uncertain speech to script position | Fuzzy matching (Levenshtein) or semantic embeddings |
-| **Scroll Controller Service** | Determines scroll behavior based on confidence | State machine: scroll/pause/jump |
-| **Application State** | Single source of truth for app data | Zustand (lightweight) or Redux (complex apps) |
-| **Teleprompter Display** | Renders script at current position with smooth scrolling | React component with CSS transitions or GPU-accelerated scroll |
-| **Script Editor** | Allows user to input/edit script text | Controlled textarea or rich text editor |
-| **Controls Panel** | Play/pause, manual scroll, settings | React components with state actions |
+**What it does:**
+- Receives speech transcript (already tokenized)
+- Searches for phrase matches within a specified position range
+- Returns array of candidates: `{ position, score, matchedWords }`
+- Has NO knowledge of current position or history
 
-## Recommended Project Structure
+**What it does NOT do:**
+- Track current position (PositionTracker's job)
+- Decide whether to accept matches (PositionTracker's job)
+- Care about time/recency (PositionTracker's job)
+- Trigger scrolling (ScrollController's job)
 
-```
-src/
-├── components/           # UI components
-│   ├── TeleprompterDisplay/
-│   │   ├── index.tsx           # Main display component
-│   │   ├── ScrollContainer.tsx # GPU-accelerated scroll wrapper
-│   │   └── HighlightedText.tsx # Current position indicator
-│   ├── ScriptEditor/
-│   │   └── index.tsx           # Script input component
-│   └── ControlPanel/
-│       └── index.tsx           # Play/pause/settings controls
-│
-├── services/             # Business logic (isolated from UI)
-│   ├── speechRecognition.ts    # Web Speech API wrapper
-│   ├── textMatcher.ts          # Fuzzy/semantic matching logic
-│   ├── scrollController.ts     # Scroll decision state machine
-│   └── scriptProcessor.ts      # Parse script into chunks/words
-│
-├── state/                # State management
-│   ├── store.ts                # Zustand store or Redux setup
-│   ├── slices/                 # State slices/reducers
-│   │   ├── scriptSlice.ts      # Script content state
-│   │   ├── positionSlice.ts    # Current position state
-│   │   └── recognitionSlice.ts # Recognition status state
-│   └── selectors.ts            # Memoized state selectors
-│
-├── hooks/                # Custom React hooks
-│   ├── useSpeechRecognition.ts # Hook to interact with recognition service
-│   ├── useScrollPosition.ts    # Hook for scroll position management
-│   └── useTextMatcher.ts       # Hook for text matching logic
-│
-├── types/                # TypeScript definitions
-│   ├── script.ts               # Script structure types
-│   ├── recognition.ts          # Recognition result types
-│   └── position.ts             # Position and confidence types
-│
-└── utils/                # Utility functions
-    ├── levenshtein.ts          # Distance calculation
-    ├── confidence.ts           # Confidence scoring logic
-    └── smoothScroll.ts         # Scroll animation helpers
-```
-
-### Structure Rationale
-
-- **services/**: Keep business logic independent of React. Services can be tested in isolation and potentially reused.
-- **state/**: Centralized state makes it easy to debug and understand data flow. Zustand recommended for this size project.
-- **hooks/**: Bridge between services and components. Hooks provide clean React integration without coupling components to implementation details.
-- **components/**: Pure presentation components that receive props and render UI. Minimal logic.
-
-## Architectural Patterns
-
-### Pattern 1: Event-Driven Speech Recognition
-
-**What:** Speech recognition emits events (result, interim, error) that update state, triggering downstream reactions.
-
-**When to use:** Always for Web Speech API integration. The API is inherently event-based.
-
-**Trade-offs:**
-- **Pro:** Natural fit for the browser API, non-blocking
-- **Pro:** Easy to handle multiple simultaneous concerns (UI updates, logging, analytics)
-- **Con:** Can become complex with many event handlers; requires careful cleanup
-
-**Example:**
-```typescript
-// services/speechRecognition.ts
-class SpeechRecognitionService {
-  private recognition: SpeechRecognition;
-  private listeners: Map<string, Function[]> = new Map();
-
-  constructor() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.recognition = new SpeechRecognition();
-
-    // Configure for continuous real-time recognition
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.maxAlternatives = 1;
-
-    // Forward events to subscribers
-    this.recognition.onresult = (event) => {
-      this.emit('result', event.results);
-    };
-
-    this.recognition.onerror = (event) => {
-      this.emit('error', event.error);
-    };
+**Interface:**
+```javascript
+class WordMatcher {
+  constructor(scriptWords, options) {
+    this.scriptWords = scriptWords;
+    this.fuse = new Fuse(/* ... */);
   }
 
-  on(event: string, callback: Function) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event)!.push(callback);
-  }
-
-  private emit(event: string, data: any) {
-    this.listeners.get(event)?.forEach(cb => cb(data));
-  }
-
-  start() { this.recognition.start(); }
-  stop() { this.recognition.stop(); }
-}
-```
-
-### Pattern 2: Sliding Window Text Matching
-
-**What:** Compare incoming speech transcripts against a sliding window of script text around the current position, not the entire script.
-
-**When to use:** For performance with long scripts (> 1000 words). Reduces search space dramatically.
-
-**Trade-offs:**
-- **Pro:** Fast matching even with large scripts
-- **Pro:** Prevents false positives from matches far from current position
-- **Con:** Won't detect if user jumps to a different section (need fallback to full-script search)
-- **Con:** Requires tuning window size (too small = miss jumps; too large = slow)
-
-**Example:**
-```typescript
-// services/textMatcher.ts
-import Levenshtein from 'fastest-levenshtein';
-
-interface MatchResult {
-  position: number;      // Character index in script
-  confidence: number;    // 0-1 confidence score
-  matched: string;       // What text was matched
-}
-
-class TextMatcherService {
-  private windowSize = 200; // words before/after current position
-
-  findMatch(
-    transcript: string,
-    script: string,
-    currentPosition: number
-  ): MatchResult | null {
-    // Extract window around current position
-    const words = script.split(/\s+/);
-    const currentWordIndex = this.charToWordIndex(script, currentPosition);
-
-    const start = Math.max(0, currentWordIndex - this.windowSize);
-    const end = Math.min(words.length, currentWordIndex + this.windowSize);
-    const windowWords = words.slice(start, end);
-    const windowText = windowWords.join(' ');
-
-    // Normalize both strings
-    const normalizedTranscript = this.normalize(transcript);
-    const transcriptWords = normalizedTranscript.split(/\s+/);
-
-    // Slide transcript-sized window through script window
-    let bestMatch: MatchResult | null = null;
-    let bestDistance = Infinity;
-
-    for (let i = 0; i <= windowWords.length - transcriptWords.length; i++) {
-      const candidate = windowWords.slice(i, i + transcriptWords.length).join(' ');
-      const distance = Levenshtein.distance(normalizedTranscript, candidate);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        const confidence = 1 - (distance / Math.max(normalizedTranscript.length, candidate.length));
-
-        if (confidence > 0.6) { // Threshold for "good enough"
-          bestMatch = {
-            position: this.wordToCharIndex(words, start + i),
-            confidence,
-            matched: candidate
-          };
-        }
-      }
-    }
-
-    // Fallback: if no good match in window, search full script
-    if (!bestMatch || bestMatch.confidence < 0.7) {
-      return this.fullScriptSearch(transcript, script);
-    }
-
-    return bestMatch;
-  }
-
-  private normalize(text: string): string {
-    return text.toLowerCase()
-      .replace(/[^\w\s]/g, '') // Remove punctuation
-      .replace(/\s+/g, ' ')    // Collapse whitespace
-      .trim();
-  }
-
-  private charToWordIndex(text: string, charIndex: number): number {
-    return text.substring(0, charIndex).split(/\s+/).length;
-  }
-
-  private wordToCharIndex(words: string[], wordIndex: number): number {
-    return words.slice(0, wordIndex).join(' ').length;
-  }
-
-  private fullScriptSearch(transcript: string, script: string): MatchResult | null {
-    // Fallback implementation for detecting large jumps
-    // ... similar logic but over entire script
-    return null;
+  // Core method - pure function, no side effects
+  findCandidates(spokenWords, searchRange) {
+    // Returns: [{ position, score, matchedWords }, ...]
+    // searchRange: { start: number, end: number }
   }
 }
 ```
 
-### Pattern 3: Confidence-Based Scroll State Machine
+**Why stateless:** Matching is a pure operation. Given the same input (spoken words, search range), it should always produce the same output. State management belongs elsewhere.
 
-**What:** Separate scroll decision logic from matching logic. Scroll controller maintains state (scrolling/paused/jumping) and transitions based on confidence scores.
+### 2. PositionTracker (Stateful Core)
 
-**When to use:** Always. This prevents jittery scrolling and makes behavior predictable.
+**Responsibility:** Maintain the single source of truth for "where the user is" in the script.
 
-**Trade-offs:**
-- **Pro:** Smooth, predictable user experience
-- **Pro:** Easy to tune behavior by adjusting thresholds
-- **Con:** Adds complexity vs. naive "always scroll to match"
+**What it does:**
+- Holds `confirmedPosition` - the last position we're certain about
+- Receives match candidates from WordMatcher
+- Applies acceptance rules (proximity bias, skip limits, consecutive confirmation)
+- Updates `confirmedPosition` only when confident
+- Emits events when position changes
 
-**Example:**
-```typescript
-// services/scrollController.ts
-type ScrollState = 'idle' | 'scrolling' | 'paused' | 'jumping';
+**What it does NOT do:**
+- Fuzzy matching (WordMatcher's job)
+- Scroll the display (ScrollController's job)
+- Calculate scroll speed (ScrollController's job)
 
-interface ScrollDecision {
-  state: ScrollState;
-  targetPosition: number | null;
-  scrollSpeed: number; // pixels per second
+**State model:**
+```javascript
+{
+  confirmedPosition: number,      // Last word index we're certain about
+  tentativePosition: number|null, // Candidate being confirmed
+  tentativeStartTime: number,     // When we first saw tentative
+  lastConfirmTime: number,        // When we last confirmed a position
 }
+```
 
-class ScrollControllerService {
-  private currentState: ScrollState = 'idle';
-  private confidenceHistory: number[] = [];
-  private historySize = 5; // Smooth over last N results
+**Acceptance rules (the brain of v1.1):**
+1. **Proximity bias:** Prefer candidates near `confirmedPosition`
+2. **Forward preference:** Small forward moves (1-5 words) accepted immediately
+3. **Backward skepticism:** Backward moves require longer confirmation
+4. **Skip limit:** Large jumps (>N words) rejected unless confirmed multiple times
+5. **Consecutive confirmation:** Same position seen M times over T ms = confirmed
 
-  // Thresholds
-  private readonly SCROLL_CONFIDENCE = 0.75;
-  private readonly PAUSE_CONFIDENCE = 0.5;
-  private readonly JUMP_THRESHOLD = 100; // chars
-
-  decide(
-    matchPosition: number | null,
-    matchConfidence: number,
-    currentPosition: number
-  ): ScrollDecision {
-    // Update confidence history
-    this.confidenceHistory.push(matchConfidence);
-    if (this.confidenceHistory.length > this.historySize) {
-      this.confidenceHistory.shift();
-    }
-
-    const avgConfidence = this.confidenceHistory.reduce((a, b) => a + b, 0) / this.confidenceHistory.length;
-
-    // No match or low confidence → PAUSE
-    if (!matchPosition || avgConfidence < this.PAUSE_CONFIDENCE) {
-      return {
-        state: 'paused',
-        targetPosition: null,
-        scrollSpeed: 0
-      };
-    }
-
-    const distance = Math.abs(matchPosition - currentPosition);
-
-    // Large jump detected → JUMP immediately
-    if (distance > this.JUMP_THRESHOLD) {
-      this.currentState = 'jumping';
-      return {
-        state: 'jumping',
-        targetPosition: matchPosition,
-        scrollSpeed: Infinity // Instant jump
-      };
-    }
-
-    // High confidence and small distance → SCROLL smoothly
-    if (avgConfidence >= this.SCROLL_CONFIDENCE) {
-      this.currentState = 'scrolling';
-      return {
-        state: 'scrolling',
-        targetPosition: matchPosition,
-        scrollSpeed: this.calculateScrollSpeed(distance, avgConfidence)
-      };
-    }
-
-    // Medium confidence → PAUSE (uncertain)
-    return {
-      state: 'paused',
-      targetPosition: null,
-      scrollSpeed: 0
-    };
+**Interface:**
+```javascript
+class PositionTracker {
+  constructor(options) {
+    this.confirmedPosition = 0;
+    this.onPositionConfirmed = options.onPositionConfirmed; // callback
   }
 
-  private calculateScrollSpeed(distance: number, confidence: number): number {
-    // Faster scroll for higher confidence and larger distances
-    const baseSpeed = 100; // pixels per second
-    const confidenceMultiplier = confidence * 2;
-    const distanceMultiplier = Math.min(distance / 50, 2);
-    return baseSpeed * confidenceMultiplier * distanceMultiplier;
+  // Main method - receives candidates, may update confirmedPosition
+  processMatches(candidates, timestamp) {
+    // Applies acceptance rules
+    // If accepted, updates confirmedPosition and calls callback
+    // Returns: { accepted: boolean, newPosition?: number }
+  }
+
+  // For scroll controller to know current position
+  getConfirmedPosition() {
+    return this.confirmedPosition;
   }
 
   reset() {
-    this.currentState = 'idle';
-    this.confidenceHistory = [];
+    this.confirmedPosition = 0;
+    // ...
   }
 }
 ```
 
-### Pattern 4: React Hook Facade
+### 3. ScrollController (Reactive Display)
 
-**What:** Expose services to React components through custom hooks that handle lifecycle and state synchronization.
+**Responsibility:** Keep the confirmed position visible at the caret line.
 
-**When to use:** Always when using services with React. Keeps components clean and services testable.
+**What it does:**
+- Listens for position confirmations from PositionTracker
+- Calculates target scroll position to place confirmed position at caret
+- Applies smooth scrolling animation
+- Tracks speaking pace for scroll speed
+- Handles pause/resume gracefully
 
-**Trade-offs:**
-- **Pro:** Clean separation of concerns
-- **Pro:** Services remain framework-agnostic
-- **Con:** Extra abstraction layer
+**What it does NOT do:**
+- Match words (WordMatcher's job)
+- Decide what position is confirmed (PositionTracker's job)
+- Predict where user will be (no prediction, only reaction)
 
-**Example:**
-```typescript
-// hooks/useSpeechRecognition.ts
-import { useEffect, useCallback } from 'react';
-import { useStore } from '../state/store';
-import { SpeechRecognitionService } from '../services/speechRecognition';
+**Key constraint:** Never scroll ahead of `confirmedPosition`. The display only reacts to confirmed speech.
 
-let recognitionService: SpeechRecognitionService | null = null;
+**Interface:**
+```javascript
+class ScrollController {
+  constructor(container, textElement, options) {
+    this.container = container;
+    this.caret = options.caretPosition || 0.33; // 1/3 from top
+  }
 
-export function useSpeechRecognition() {
-  const { setRecognitionResult, setError, setStatus } = useStore();
+  // Called when position is confirmed
+  onPositionConfirmed(wordIndex, totalWords) {
+    // Calculate target scroll
+    // Animate smoothly
+  }
 
-  // Initialize service once
-  useEffect(() => {
-    if (!recognitionService) {
-      recognitionService = new SpeechRecognitionService();
-
-      recognitionService.on('result', (results: SpeechRecognitionResultList) => {
-        const latest = results[results.length - 1];
-        const transcript = latest[0].transcript;
-        const confidence = latest[0].confidence;
-        const isFinal = latest.isFinal;
-
-        setRecognitionResult({ transcript, confidence, isFinal });
-      });
-
-      recognitionService.on('error', (error: string) => {
-        setError(error);
-        setStatus('error');
-      });
-    }
-
-    return () => {
-      // Cleanup on unmount
-      recognitionService?.stop();
-    };
-  }, []);
-
-  const start = useCallback(() => {
-    recognitionService?.start();
-    setStatus('listening');
-  }, [setStatus]);
-
-  const stop = useCallback(() => {
-    recognitionService?.stop();
-    setStatus('idle');
-  }, [setStatus]);
-
-  return { start, stop };
+  // For pace-based speed
+  updateSpeakingPace(wordsPerSecond) {
+    // Adjust scroll animation speed
+  }
 }
 ```
 
 ## Data Flow
 
-### Real-Time Recognition Flow
-
 ```
-User speaks
-    ↓
-[Browser Microphone] → [Web Speech API]
-    ↓
-SpeechRecognition emits 'result' event
-    ↓
-Recognition Service receives event
-    ↓
-    ├─→ Interim result? → Update state with low confidence
-    │       ↓
-    │   Text Matcher gets interim transcript
-    │       ↓
-    │   Returns tentative match (low confidence)
-    │       ↓
-    │   Scroll Controller receives match
-    │       ↓
-    │   Decision: PAUSE (confidence too low)
-    │
-    └─→ Final result? → Update state with high confidence
-            ↓
-        Text Matcher gets final transcript
-            ↓
-        Performs sliding window search
-            ↓
-        Returns best match with confidence score
-            ↓
-        Scroll Controller receives match
-            ↓
-        Decision: SCROLL or JUMP (based on confidence & distance)
-            ↓
-        State updates with new target position
-            ↓
-        TeleprompterDisplay re-renders
-            ↓
-        Smooth CSS transition or GPU-accelerated scroll
-            ↓
-        User sees script at correct position
+                    Speech Input
+                         |
+                         v
+              +--------------------+
+              |  SpeechRecognizer  |  (existing, keep)
+              +--------------------+
+                         |
+                    transcript
+                         |
+                         v
+              +--------------------+
+              |    WordMatcher     |  (pure matching)
+              +--------------------+
+                         |
+            candidates[] with scores
+                         |
+                         v
+              +--------------------+
+              |  PositionTracker   |  (acceptance logic)
+              +--------------------+
+                         |
+              confirmedPosition (event)
+                         |
+                         v
+              +--------------------+
+              |  ScrollController  |  (display reaction)
+              +--------------------+
+                         |
+                         v
+                  DOM scroll update
 ```
 
-### User Edit Flow
+### Event-Driven Communication
 
-```
-User types in Script Editor
-    ↓
-onChange event fires
-    ↓
-State updates with new script content
-    ↓
-Script Processor parses text into words/sentences
-    ↓
-State stores structured script
-    ↓
-TeleprompterDisplay re-renders with new text
-    ↓
-Text Matcher cache invalidated
-    ↓
-Next recognition result matches against new script
-```
+Components communicate via events/callbacks, not direct coupling:
 
-### Manual Jump Flow
-
-```
-User clicks word in TeleprompterDisplay
-    ↓
-Component calls position update action
-    ↓
-State updates current position directly
-    ↓
-Recognition Service resets (optional)
-    ↓
-Scroll Controller resets confidence history
-    ↓
-Display scrolls to clicked position
-    ↓
-Next speech recognition continues from new position
-```
-
-## State Management
-
-### Recommended: Zustand (Lightweight)
-
-For this project size, Zustand provides the right balance of simplicity and power.
-
-```typescript
-// state/store.ts
-import create from 'zustand';
-
-interface AppState {
-  // Script
-  scriptText: string;
-  scriptWords: string[];
-
-  // Position
-  currentPosition: number;
-  targetPosition: number | null;
-
-  // Recognition
-  recognitionStatus: 'idle' | 'listening' | 'error';
-  currentTranscript: string;
-  transcriptConfidence: number;
-
-  // Scroll
-  scrollState: 'idle' | 'scrolling' | 'paused' | 'jumping';
-  scrollSpeed: number;
-
-  // Actions
-  setScriptText: (text: string) => void;
-  setCurrentPosition: (position: number) => void;
-  setRecognitionResult: (result: RecognitionResult) => void;
-  setScrollDecision: (decision: ScrollDecision) => void;
-}
-
-export const useStore = create<AppState>((set) => ({
-  // Initial state
-  scriptText: '',
-  scriptWords: [],
-  currentPosition: 0,
-  targetPosition: null,
-  recognitionStatus: 'idle',
-  currentTranscript: '',
-  transcriptConfidence: 0,
-  scrollState: 'idle',
-  scrollSpeed: 0,
-
-  // Actions
-  setScriptText: (text) => set({
-    scriptText: text,
-    scriptWords: text.split(/\s+/)
-  }),
-
-  setCurrentPosition: (position) => set({
-    currentPosition: position
-  }),
-
-  setRecognitionResult: (result) => set({
-    currentTranscript: result.transcript,
-    transcriptConfidence: result.confidence
-  }),
-
-  setScrollDecision: (decision) => set({
-    scrollState: decision.state,
-    targetPosition: decision.targetPosition,
-    scrollSpeed: decision.scrollSpeed
-  })
-}));
-```
-
-### Alternative: Redux Toolkit (Complex Apps)
-
-If the application grows to include features like multi-user collaboration, history/undo, or complex async workflows, Redux Toolkit provides better structure.
-
-## Scaling Considerations
-
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| **MVP (single user, short scripts)** | Client-only, Web Speech API, Levenshtein matching, simple state |
-| **Production (longer scripts, multiple languages)** | Add Web Workers for text matching, index script for faster search, consider AudioWorklet for lower latency |
-| **Advanced (semantic matching, paraphrasing)** | Add Transformers.js with sentence embeddings (e.g., minishlab/potion-retrieval-32M), vector similarity instead of Levenshtein |
-| **Enterprise (offline, privacy)** | Bundle local AI models, use AudioWorklet + Vosk for fully offline ASR, add IndexedDB for caching |
-
-### Scaling Priorities
-
-1. **First bottleneck: Text matching on long scripts (> 5000 words)**
-   - **Fix:** Move matching to Web Worker, implement sliding window (Pattern 2), add script indexing
-
-2. **Second bottleneck: Speech recognition latency**
-   - **Fix:** Switch from Web Speech API to AudioWorklet + local ASR model (Vosk, Whisper.wasm)
-
-3. **Third bottleneck: Semantic matching quality**
-   - **Fix:** Add Transformers.js with embeddings, use cosine similarity instead of Levenshtein
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Blocking Main Thread with Text Matching
-
-**What people do:** Run Levenshtein distance calculation synchronously in the main thread for every interim result.
-
-**Why it's wrong:** With long scripts and continuous interim results (multiple per second), this causes UI jank and dropped frames.
-
-**Do this instead:**
-- Debounce matching for interim results (only match every 200-300ms)
-- Use Web Workers for matching on scripts > 2000 words
-- Match only final results for smooth UI
-
-### Anti-Pattern 2: Naive Full-Script Search
-
-**What people do:** Compare every incoming transcript against the entire script from start to finish.
-
-**Why it's wrong:** O(n) for every speech result = sluggish on long scripts. Also causes false positives when phrases repeat.
-
-**Do this instead:** Use sliding window (Pattern 2) or index the script with a spatial data structure. Only fall back to full-script search when confidence is low (user may have jumped).
-
-### Anti-Pattern 3: Instant Scroll on Every Match
-
-**What people do:** Immediately scroll to matched position without smoothing or confidence checking.
-
-**Why it's wrong:** Recognition confidence varies; low-confidence matches cause jittery, disorienting scrolling. Interim results change rapidly.
-
-**Do this instead:** Use confidence-based state machine (Pattern 3). Smooth over recent history. Only scroll on high-confidence final results.
-
-### Anti-Pattern 4: Tight Coupling Between Components
-
-**What people do:** TeleprompterDisplay component directly instantiates SpeechRecognition API and handles matching logic.
-
-**Why it's wrong:** Impossible to test, hard to change recognition strategy, can't reuse logic elsewhere.
-
-**Do this instead:** Extract services, expose via hooks (Pattern 4). Components should be dumb presenters receiving props.
-
-### Anti-Pattern 5: Ignoring Browser Compatibility
-
-**What people do:** Use Web Speech API without checking for support or providing fallbacks.
-
-**Why it's wrong:** Web Speech API support varies across browsers. Chrome has best support; Firefox/Safari are limited. Users get blank screen or errors.
-
-**Do this instead:**
-```typescript
-function checkSpeechRecognitionSupport() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    return {
-      supported: false,
-      message: 'Speech recognition not supported in this browser. Please use Chrome.'
-    };
+```javascript
+// In script.js setup
+const wordMatcher = new WordMatcher(scriptWords);
+const positionTracker = new PositionTracker({
+  onPositionConfirmed: (position) => {
+    scrollController.onPositionConfirmed(position, wordMatcher.totalWords);
+    highlighter.highlightPosition(position, wordMatcher.scriptWords);
   }
+});
+const scrollController = new ScrollController(container, textElement);
 
-  return { supported: true };
-}
+// When speech arrives
+speechRecognizer.onTranscript = (text, isFinal) => {
+  const words = tokenize(text);
+  const searchRange = positionTracker.getSearchRange(); // proximity window
+  const candidates = wordMatcher.findCandidates(words, searchRange);
+  positionTracker.processMatches(candidates, Date.now());
+};
 ```
 
-Show clear error message and suggest Chrome if unsupported.
+## State Model
 
-## Integration Points
+### What State Is Needed
 
-### External APIs
+| Component | State | Purpose |
+|-----------|-------|---------|
+| WordMatcher | scriptWords, fuse index | Immutable after init |
+| PositionTracker | confirmedPosition | Single source of truth |
+| PositionTracker | tentativePosition, tentativeStartTime | Confirmation tracking |
+| PositionTracker | lastConfirmTime | Recency for pace calculation |
+| ScrollController | currentScrollTop | Current scroll position |
+| ScrollController | targetScrollTop | Animation target |
+| ScrollController | speakingPace | For scroll speed |
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| **Web Speech API** | Browser native, event-based | Only use SpeechRecognition (not SpeechSynthesis for this app) |
-| **Transformers.js (optional)** | NPM package, async model loading | For semantic matching upgrade; bundle size ~25MB min |
-| **Vosk (advanced)** | WebSocket to local server or .wasm in browser | For offline ASR alternative |
+### Where State Lives
 
-### Internal Boundaries
+**PositionTracker owns the critical state:** `confirmedPosition`. This is the single source of truth that all other components react to.
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| **Service ↔ State** | Direct function calls to update state | Services are stateless; all app state lives in Zustand/Redux |
-| **State ↔ Components** | Hooks with selectors | Components subscribe to specific state slices, not entire state |
-| **Component ↔ Component** | Via shared state only | No prop drilling; use state for cross-component communication |
-| **Main Thread ↔ Web Worker** | postMessage API | Only if text matching moves to worker (performance optimization) |
+**ScrollController owns display state:** Current scroll, target scroll, animation state. These are presentation concerns, not tracking concerns.
 
-## Build Order Implications
+**WordMatcher is stateless:** Just a utility that takes input and returns output.
 
-The architecture suggests a clear build order based on dependencies:
+### State Transitions
 
-### Phase 1: Core Display (no voice)
-- Script editor component
-- Teleprompter display component
-- Manual scroll controls
-- Basic state management
+```
+PositionTracker State Machine (simplified):
 
-**Rationale:** Get UI foundation working before adding complex speech recognition.
+  TRACKING (normal operation)
+      |
+      | No matches for T seconds
+      v
+  WAITING (lost position)
+      |
+      | High-confidence match found
+      v
+  TRACKING
+```
 
-### Phase 2: Speech Recognition Service
-- Web Speech API wrapper
-- Basic event handling
-- Display raw transcripts
+Unlike v1.0's complex CONFIDENT/UNCERTAIN/OFF_SCRIPT, v1.1 has simpler states because the complexity moves to acceptance rules rather than scroll behavior. The scroll simply follows confirmed position - it doesn't need to know if we're confident or uncertain.
 
-**Rationale:** Validate speech recognition works in isolation before adding matching complexity.
+## Integration with Existing Code
 
-### Phase 3: Basic Text Matching
-- Levenshtein matching implementation
-- Simple "scroll to best match" logic
+### What to Keep
 
-**Rationale:** Prove matching concept with simplest algorithm first.
+| Component | Keep/Modify/Replace | Reason |
+|-----------|---------------------|--------|
+| SpeechRecognizer.js | **Keep as-is** | Works well, auto-restart, error handling |
+| AudioVisualizer.js | **Keep as-is** | Waveform display works |
+| Highlighter.js | **Keep as-is** | CSS Custom Highlight API works |
+| textUtils.js | **Keep as-is** | tokenize(), filler filtering work |
+| Fuse.js | **Keep** | Fuzzy matching library, already integrated |
+| CSS scroll animation | **Keep** | Smooth scroll mechanics work |
 
-### Phase 4: Scroll Control Intelligence
-- Confidence-based state machine
-- Smooth scrolling
-- Pause on uncertainty
+### What to Replace
 
-**Rationale:** Polish user experience after core functionality works.
+| Component | Replace With | Reason |
+|-----------|--------------|--------|
+| TextMatcher.js | WordMatcher.js | Remove position tracking, make stateless |
+| ScrollSync.js | PositionTracker.js + ScrollController.js | Split into two concerns |
+| ConfidenceLevel.js | Absorbed into PositionTracker | Simplify, confidence = acceptance rules |
 
-### Phase 5: Optimizations (if needed)
-- Sliding window matching
-- Web Workers for performance
-- Semantic matching with Transformers.js
+### What to Remove
 
-**Rationale:** Only add complexity if performance or matching quality issues appear.
+| Component | Why Remove |
+|-----------|-----------|
+| State machine (CONFIDENT/UNCERTAIN/OFF_SCRIPT) | Overengineered for v1.0's needs |
+| Dwell time in ScrollSync | Moves to PositionTracker's confirmation logic |
+| Speed adjustment in ScrollSync | Simplify: pace-based only |
+| behindThreshold/aheadThreshold | No longer needed with reactive model |
 
-## Technology Decisions
+### Integration Points
 
-### Required Technologies
-- **React**: Component-based UI (standard for web apps)
-- **TypeScript**: Type safety for complex state and events
-- **Web Speech API**: Free, browser-native speech recognition
-- **fastest-levenshtein**: Fastest JS Levenshtein implementation (fuzzy matching)
+**script.js changes:**
+```javascript
+// Before (v1.0)
+const result = textMatcher.getMatchWithConfidence(matchWords.join(' '));
+const { state, positionAccepted } = scrollSync.updateConfidence(result);
 
-### Recommended Technologies
-- **Zustand**: Lightweight state management (simpler than Redux for this size)
-- **Vite**: Fast build tool with React support
-- **Tailwind CSS or Bulma**: For rapid UI development
+// After (v1.1)
+const searchRange = positionTracker.getSearchRange();
+const candidates = wordMatcher.findCandidates(matchWords, searchRange);
+positionTracker.processMatches(candidates, Date.now());
+// Scroll updates happen via callback, not here
+```
 
-### Optional/Advanced Technologies
-- **Transformers.js**: Semantic text matching (25MB+ model size)
-- **Web Workers**: Offload text matching from main thread
-- **AudioWorklet**: Lower-latency audio processing
-- **Vosk or Whisper.wasm**: Offline speech recognition alternative
+**Highlighter integration:**
+```javascript
+// Subscribe to position changes
+positionTracker.onPositionConfirmed = (position) => {
+  highlighter.highlightPosition(position, wordMatcher.scriptWords);
+  scrollController.onPositionConfirmed(position, wordMatcher.totalWords);
+};
+```
+
+## Recommended Structure
+
+### File Organization
+
+```
+matching/
+  WordMatcher.js       # NEW: Pure matching, returns candidates
+  PositionTracker.js   # NEW: Acceptance logic, confirmed position
+  ScrollController.js  # NEW: Scroll animation, pace tracking
+  Highlighter.js       # KEEP: CSS Custom Highlight API
+  textUtils.js         # KEEP: tokenize, filler filtering
+
+voice/
+  SpeechRecognizer.js  # KEEP: Speech capture, auto-restart
+  AudioVisualizer.js   # KEEP: Waveform display
+
+script.js              # MODIFY: Wire up new components
+```
+
+### Suggested Implementation Order
+
+1. **WordMatcher.js** - Extract matching from TextMatcher, make stateless
+2. **PositionTracker.js** - New file with acceptance rules
+3. **ScrollController.js** - Extract scroll from ScrollSync, simplify
+4. **script.js** - Wire up new pipeline
+5. **Delete** - TextMatcher.js, ScrollSync.js, ConfidenceLevel.js
+
+### Configuration
+
+Move tuning parameters to PositionTracker options:
+
+```javascript
+const positionTracker = new PositionTracker({
+  // Acceptance rules
+  maxForwardSkip: 5,        // Immediate accept for small forward
+  maxBackwardSkip: 3,       // Stricter for backward
+  skipConfirmTime: 200,     // ms to confirm large skip
+  skipConfirmCount: 2,      // times to see same position
+
+  // Search window
+  proximityWindow: 15,      // words to search around confirmed
+
+  // Callbacks
+  onPositionConfirmed: (pos) => { /* ... */ }
+});
+```
+
+## Patterns to Follow
+
+### Pattern 1: Pipeline (Data Transformation Chain)
+
+Data flows through stages: Speech -> Words -> Candidates -> Confirmed Position -> Scroll Command
+
+Each stage transforms data and passes it forward. No stage reaches back to modify earlier stages.
+
+**Reference:** [Pipeline Pattern](https://dev.to/wallacefreitas/the-pipeline-pattern-streamlining-data-processing-in-software-architecture-44hn)
+
+### Pattern 2: Observer (Event-Driven Updates)
+
+PositionTracker emits events when `confirmedPosition` changes. Observers (ScrollController, Highlighter) react independently.
+
+**Benefits:**
+- Loose coupling between components
+- Easy to add new observers (e.g., debug logger)
+- Components don't need to know about each other
+
+**Reference:** [Observer Pattern in JavaScript](https://medium.com/@artemkhrenov/the-observer-pattern-in-modern-javascript-building-reactive-systems-9337d6a27ee7)
+
+### Pattern 3: Single Source of Truth
+
+`confirmedPosition` in PositionTracker is THE position. No other component maintains its own idea of "where we are."
+
+**Why critical:** v1.0 had position in TextMatcher AND target position in ScrollSync. These could diverge, causing confusion.
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Bidirectional Data Flow
+
+**Bad:** ScrollController tells PositionTracker to update position
+**Good:** PositionTracker updates, ScrollController reacts
+
+Data flows one direction: Speech -> Match -> Position -> Scroll
+
+### Anti-Pattern 2: Mixed Concerns in One Class
+
+**Bad (v1.0):** ScrollSync does matching acceptance, scroll animation, speed calculation, state machine
+**Good (v1.1):** Each class does one thing well
+
+### Anti-Pattern 3: Prediction
+
+**Bad:** Scroll ahead of where user might be
+**Good:** Only scroll to where user demonstrably IS
+
+### Anti-Pattern 4: Complex State Machines for Simple Problems
+
+**Bad (v1.0):** 3-state machine with complex transitions for scroll behavior
+**Good (v1.1):** Simple acceptance rules that either confirm or don't
 
 ## Sources
 
-**Speech Recognition Architecture:**
-- [Using the Web Speech API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API) - HIGH confidence (official spec)
-- [Web Speech API Specification](https://webaudio.github.io/web-speech-api/) - HIGH confidence (official spec)
-- [Voice-Activated Teleprompter GitHub](https://github.com/jlecomte/voice-activated-teleprompter) - MEDIUM confidence (real implementation example)
-- [Top APIs and models for real-time speech recognition 2026](https://www.assemblyai.com/blog/best-api-models-for-real-time-speech-recognition-and-transcription) - MEDIUM confidence (ecosystem survey)
+### Primary (HIGH confidence - implemented patterns)
+- [Game Programming Patterns: State](https://gameprogrammingpatterns.com/state.html) - State management patterns
+- [Observer Pattern in JavaScript](https://medium.com/@artemkhrenov/the-observer-pattern-in-modern-javascript-building-reactive-systems-9337d6a27ee7) - Event-driven reactive systems
+- [Pipeline Pattern](https://dev.to/wallacefreitas/the-pipeline-pattern-streamlining-data-processing-in-software-architecture-44hn) - Data transformation chains
+- [Separation of Concerns](https://www.geeksforgeeks.org/software-engineering/separation-of-concerns-soc/) - Architectural principle
 
-**Text Matching:**
-- [fastest-levenshtein npm](https://www.npmjs.com/package/fastest-levenshtein) - HIGH confidence (official package)
-- [Fuzzy Matching 101: A Complete Guide for 2026](https://matchdatapro.com/fuzzy-matching-101-a-complete-guide-for-2026/) - MEDIUM confidence (technique overview)
-- [SemanticFinder - Transformers.js semantic search](https://github.com/do-me/SemanticFinder) - HIGH confidence (working implementation)
-- [In-Browser Semantic AI Search with PGlite and Transformers.js](https://supabase.com/blog/in-browser-semantic-search-pglite) - MEDIUM confidence (implementation guide)
+### Secondary (MEDIUM confidence - informed by similar domains)
+- [Aeneas Forced Alignment](https://github.com/readbeyond/aeneas) - Audio-text synchronization concepts
+- [PromptSmart VoiceTrack](https://promptsmart.com/) - Commercial voice teleprompter approach
+- [Autoscript Voice](https://autoscript.tv/voice/) - Professional teleprompter voice control
 
-**Audio Processing:**
-- [Background audio processing using AudioWorklet - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Using_AudioWorklet) - HIGH confidence (official docs)
-- [Real-Time Speech-to-Text on Edge](https://www.mdpi.com/2078-2489/16/8/685) - MEDIUM confidence (architecture research)
+### Domain Knowledge (from v1.0 experience)
+- PROJECT.md design principles (v1.1 requirements)
+- 04-RESEARCH.md (confidence scoring, easing patterns)
+- 04-CONTEXT.md (scroll behavior decisions)
 
-**State Management:**
-- [State Management in 2026: Redux, Context API, and Modern Patterns](https://www.nucamp.co/blog/state-management-in-2026-redux-context-api-and-modern-patterns) - MEDIUM confidence (ecosystem survey)
-- [18 Best React State Management Libraries in 2026](https://fe-tool.com/awesome-react-state-management) - LOW confidence (list compilation)
+## Quality Checklist
 
-**Scroll Control:**
-- [Voice Scroll: Teleprompter.com's New Auto-Scrolling Feature](https://www.teleprompter.com/blog/voice-scroll-teleprompter-app-new-feature) - LOW confidence (marketing content, but describes smooth scrolling algorithms)
-
----
-*Architecture research for: AI voice-controlled teleprompter*
-*Researched: 2026-01-22*
+- [x] Clear component boundaries (WordMatcher, PositionTracker, ScrollController)
+- [x] Data flow is explicit (pipeline: Speech -> Match -> Position -> Scroll)
+- [x] State model is simple (confirmedPosition is single source of truth)
+- [x] Integration with existing code considered (keep SpeechRecognizer, Highlighter, AudioVisualizer)
+- [x] Patterns grounded in established software architecture
+- [x] Anti-patterns identified from v1.0 experience

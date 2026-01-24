@@ -1,510 +1,684 @@
-# Pitfalls Research
+# Position-Tracking Pitfalls
 
-**Domain:** Voice-controlled teleprompter with real-time speech matching
-**Researched:** 2026-01-22
-**Confidence:** MEDIUM to HIGH (verified with official docs and 2026 sources)
+**Domain:** Voice-controlled teleprompter position tracking
+**Researched:** 2026-01-24
+**Mode:** Pitfalls analysis for v1.1 rewrite
 
-## Critical Pitfalls
+## Executive Summary
 
-### Pitfall 1: Web Speech API Stops Unexpectedly
+Position tracking for voice-controlled teleprompters fails in predictable ways. The core tension: the system must be responsive enough to follow natural speech but conservative enough to avoid false jumps. v1.0 got this wrong by adding complexity (state machines, confidence thresholds, dwell times, skip detection) instead of simplifying the fundamental model.
 
-**What goes wrong:**
-Even with `continuous = true`, the Web Speech API frequently stops listening without warning. The recognition engine halts after detecting a pause or "speech end," requiring manual restart. Users speak continuously but the teleprompter stops tracking midway through their script.
-
-**Why it happens:**
-The `speechend` event fires prematurely based on pause detection algorithms that don't match natural speaking rhythms. The browser's speech engine makes assumptions about when the user finished speaking that don't align with teleprompter use cases where continuous speech is expected.
-
-**How to avoid:**
-Implement automatic restart on `speechend` and `end` events. Build a state machine that tracks whether the user intentionally stopped (via UI action) vs. engine timeout.
-
-```javascript
-recognition.onspeechend = () => {
-  // DON'T just stop - check if user still needs tracking
-  if (isUserStillSpeaking) {
-    recognition.start(); // Restart immediately
-  }
-};
-
-recognition.onend = () => {
-  // Engine stopped - restart unless user paused
-  if (!userPaused) {
-    setTimeout(() => recognition.start(), 100);
-  }
-};
-```
-
-**Warning signs:**
-- Transcription stops appearing in console/UI
-- No errors thrown, just silence
-- Works for short phrases but fails on longer speeches
-- Inconsistent behavior between test runs
-
-**Phase to address:**
-Phase 1 (Core speech tracking) - This is foundational. Without reliable continuous recognition, the entire product fails.
+**The key insight:** Most pitfalls stem from treating position tracking as a *prediction* problem rather than a *confirmation* problem. When you try to predict where the user *will be*, you inevitably get ahead of them. When you confirm where the user *is*, you stay in sync.
 
 ---
 
-### Pitfall 2: Interim Results Create False Matches
+## v1.0 Failure Analysis
 
-**What goes wrong:**
-With `interimResults = true`, the matching algorithm sees constantly changing transcription fragments. It matches against "I think we should..." then immediately sees "I think we should probably..." then "I think we should probably consider..." Each interim result triggers a new match attempt, causing the teleprompter to jump around erratically or thrash between positions.
+### What Failed
 
-**Why it happens:**
-Developers enable interim results to get "responsive" UI, but interim results are unstable "best guesses" that change dramatically before final results. The speech engine rebuilds all interim results on each result event, so text that seemed confirmed suddenly changes.
+Looking at the v1.0 implementation (`TextMatcher.js`, `ScrollSync.js`, `ConfidenceLevel.js`), several design decisions created compounding problems:
 
-**How to avoid:**
-Use `interimResults = false` for position matching. Only match against final results. If you need visual feedback for responsiveness, show interim results in a separate "listening..." indicator but don't use them for scroll position decisions.
+**1. Speculative Position Updates**
+
+v1.0 updated `currentPosition` immediately on match detection, then tried to constrain scroll with `lastMatchedPosition`. This creates two position concepts that can diverge:
+- `currentPosition` (where we think the user is)
+- `lastMatchedPosition` (where we've confirmed)
+
+The scroll logic tried to "never scroll past boundary" but the boundary itself moved speculatively.
+
+**2. Confidence as a Gate, Not a Signal**
+
+v1.0 used confidence to decide whether to *accept* a match (gate), rather than how *far* to act on it (signal). Binary accept/reject means:
+- High confidence: accept position, scroll
+- Not high enough: reject position, coast
+
+This creates jerky behavior - you're either tracking or not.
+
+**3. State Machine Abstraction Mismatch**
+
+`ScrollState.CONFIDENT/UNCERTAIN/OFF_SCRIPT` doesn't match the user's mental model. Users think:
+- "I'm speaking and it's following" or "I'm speaking and it's lost"
+- "I paused" or "I'm ad-libbing"
+
+The state machine tried to infer these from confidence levels, adding latency and error.
+
+**4. Parameter Explosion**
+
+v1.0 ended up with 15+ tunable parameters:
+- `threshold` (match quality)
+- `highThreshold`, `lowThreshold` (confidence levels)
+- `matchScoreWeight`, `consecutiveWeight`, `recencyWeight` (confidence weights)
+- `patientThreshold`, `silenceThreshold` (timing)
+- `matchDwellTime` (confirmation delay)
+- `shortSkipThreshold`, `longSkipThreshold`, `maxSkip` (skip detection)
+- `forwardSkipConfidence`, `backwardSkipConfidence` (skip thresholds)
+- `behindThreshold`, `aheadThreshold`, `behindMax` (position adjustment)
+- `accelerationTimeConstant`, `decelerationTimeConstant`, `resumeTimeConstant` (easing)
+
+Each parameter was added to fix a specific edge case, but the interactions between parameters created new edge cases.
+
+**5. Equal-Weight Position Search**
+
+`searchRangeWithScore` searched in priority order (near, wide-back, far-forward, far-backward) but once a match was found, position didn't affect confidence. A match 100 words away got the same treatment as a match 3 words away if both had the same Fuse.js score.
+
+### Why It Seemed Reasonable
+
+Each v1.0 decision made local sense:
+- State machine: "Professional pattern for complex behavior"
+- Confidence levels: "Three states are better than two"
+- Dwell time: "Prevents false jumps"
+- Skip detection: "Handles intentional jumps"
+
+The problem: these are solutions for *different* problems that don't compose well. A state machine for a simple behavior is over-engineering. Confidence levels without positional weighting are incomplete. Dwell time adds latency to the critical path. Skip detection is unnecessary if you have strong positional bias.
+
+---
+
+## Common Mistakes
+
+### 1. Over-Engineering Confidence
+
+**What the mistake looks like:**
+
+Building elaborate confidence calculations with multiple weighted factors, thresholds, and decay functions.
 
 ```javascript
-// BAD - uses interim results for matching
-recognition.interimResults = true;
-recognition.onresult = (event) => {
-  const transcript = event.results[0][0].transcript;
-  matchAndScroll(transcript); // Matches constantly changing text
-};
+// v1.0 approach - too complex
+const rawConfidence =
+  (matchQuality * 0.5) +
+  (consecutiveRatio * 0.3) +
+  (recencyFactor * 0.2);
+```
 
-// GOOD - only matches final results
-recognition.interimResults = false; // or keep true but check isFinal
-recognition.onresult = (event) => {
-  for (let i = event.resultIndex; i < event.results.length; i++) {
-    if (event.results[i].isFinal) {
-      matchAndScroll(event.results[i][0].transcript);
+**Why it seems reasonable:**
+
+"More signals = better decisions. We should consider match quality, how many words matched, and how recent the match is."
+
+**Why it fails:**
+
+1. The weights are arbitrary and interdependent
+2. Tuning one weight affects the effective contribution of others
+3. The *combination* of factors doesn't correspond to anything meaningful
+4. Edge cases require adding more factors, making the system harder to understand
+
+**Prevention:**
+
+Confidence should primarily reflect *positional plausibility*, not match quality. A high-quality match 200 words away is suspicious. A mediocre match 2 words away is probably right.
+
+```javascript
+// Simpler: position-weighted confidence
+const positionFactor = 1 / (1 + distance * 0.1);  // Nearby = high, far = low
+const matchFactor = 1 - fuseScore;  // Quality matters less
+const confidence = positionFactor * matchFactor;
+```
+
+**Connection to v1.0 failures:**
+
+v1.0's `ConfidenceCalculator` combined match quality, consecutive ratio, and recency with fixed weights. The result was "too sensitive AND not sensitive enough" - high-quality matches far away got high confidence (false jumps), while mediocre matches nearby got medium confidence (stuttering).
+
+---
+
+### 2. Predictive vs. Reactive Scrolling
+
+**What the mistake looks like:**
+
+Scroll logic that tries to anticipate where the user will be, rather than following where they are.
+
+```javascript
+// Predictive: scroll toward expected position
+this.targetWordIndex = matchResult.position;  // Update immediately
+// Scroll animation tries to catch up
+
+// The problem: targetWordIndex is already "ahead"
+// Even without scrolling, the mental model is corrupted
+```
+
+**Why it seems reasonable:**
+
+"Smooth scrolling needs a target. If we wait until we're certain, scrolling will feel laggy."
+
+**Why it fails:**
+
+1. "Anticipated position" is often wrong
+2. When wrong, the display gets ahead of the user
+3. Display being ahead breaks the fundamental contract: "next words at caret"
+4. Recovery requires scrolling *backward*, which feels unnatural
+
+**Prevention:**
+
+Adopt a "confirmed position" model:
+- Only one position concept: where the user has *confirmed* they are
+- Scroll is purely reactive to confirmed position changes
+- If uncertain, *hold*, don't coast forward
+- Scroll speed is derived from *observed* speaking pace, not predicted
+
+```javascript
+// Reactive: only update on confirmed match
+if (match.confidence > threshold) {
+  this.confirmedPosition = match.position;
+  // Scroll follows confirmedPosition, never ahead of it
+}
+```
+
+**Connection to v1.0 failures:**
+
+v1.0 had `targetWordIndex` (speculative) and `lastMatchedPosition` (confirmed) but the scroll logic used `targetWordIndex` primarily. The boundary constraint (`never scroll past lastMatchedPosition`) was a band-aid on a fundamental model problem.
+
+---
+
+### 3. Ignoring Positional Context
+
+**What the mistake looks like:**
+
+Matching algorithms that search the entire script with equal weight, then try to filter results by distance.
+
+```javascript
+// v1.0 approach: search in priority order, but don't weight by position
+let result = this.searchRangeWithScore(nearStart, nearEnd, window);
+if (!result) {
+  result = this.searchRangeWithScore(wideBackStart, nearStart, window);
+}
+// Once found, position doesn't affect confidence
+```
+
+**Why it seems reasonable:**
+
+"We prioritize nearby matches by checking them first. Isn't that positional bias?"
+
+**Why it fails:**
+
+1. Search order isn't the same as scoring weight
+2. If the first search finds nothing, you fall through to increasingly desperate searches
+3. A match found in "far-forward range" gets the same confidence as one found nearby
+4. Common words/phrases exist multiple times in scripts - search order doesn't disambiguate
+
+**Prevention:**
+
+Positional context should be *intrinsic* to match scoring, not just search order:
+
+```javascript
+// Position-weighted matching
+function scoreMatch(candidate, currentPosition) {
+  const distance = Math.abs(candidate.index - currentPosition);
+  const fuseScore = candidate.score;  // 0 = perfect
+
+  // Nearby matches get bonus; distant matches get penalty
+  const positionPenalty = distance * 0.05;  // Each word away costs 5%
+
+  return (1 - fuseScore) * (1 - positionPenalty);
+}
+```
+
+**Connection to v1.0 failures:**
+
+v1.0's "repeated phrases caused false jumps" because the phrase "we cannot" appears 3x in Gettysburg within ~15 words. With equal-weight matching, any of the three could win. With strong positional bias, the *next* occurrence wins.
+
+---
+
+### 4. Parameter Explosion
+
+**What the mistake looks like:**
+
+Each edge case gets its own tunable parameter, creating a web of interdependent knobs.
+
+| Edge Case | Parameter Added |
+|-----------|-----------------|
+| Jumpy matches | `matchDwellTime` |
+| Slow response | `silenceThreshold` |
+| False skips | `maxSkip`, `forwardSkipConfidence` |
+| Backward jumps | `backwardSkipConfidence` |
+| Getting ahead | `aheadThreshold` |
+| Falling behind | `behindThreshold`, `behindMax` |
+| State transitions | `patientThreshold` |
+
+**Why it seems reasonable:**
+
+"This specific edge case needs a specific fix. Adding a parameter lets users tune it."
+
+**Why it fails:**
+
+1. Parameters interact in unexpected ways (changing dwell time affects skip detection timing)
+2. Users can't understand what parameters do or how to tune them
+3. Default values become critical but are chosen arbitrarily
+4. Each new parameter multiplies the testing surface
+
+**Prevention:**
+
+Derive behavior from fewer, more fundamental choices:
+
+1. **Speaking pace** (observed) - derives scroll speed
+2. **Positional bias strength** (one knob) - affects how strongly to prefer nearby matches
+3. **Confirmation delay** (one knob) - trades responsiveness for stability
+
+Everything else should be derived or hardcoded.
+
+**Connection to v1.0 failures:**
+
+v1.0 ended up with a debug tuning panel exposing 8+ parameters because no one parameter could be set correctly without affecting others. The "tuning nightmare" is a symptom of parameter explosion.
+
+---
+
+### 5. State Machine Complexity
+
+**What the mistake looks like:**
+
+Using a state machine for behavior that isn't naturally stateful.
+
+```javascript
+// v1.0: States that don't map to user perception
+export const ScrollState = {
+  CONFIDENT: 'confident',     // System thinks it knows position
+  UNCERTAIN: 'uncertain',     // System is losing track
+  OFF_SCRIPT: 'off_script'   // System has lost track
+};
+```
+
+**Why it seems reasonable:**
+
+"State machines are a clean pattern for behavior that changes based on context. We need different behavior when confident vs. uncertain."
+
+**Why it fails:**
+
+1. The states represent *system* confidence, not *user* state
+2. User state (speaking on-script, paused, ad-libbing) is what actually matters
+3. Mapping system confidence to user state requires heuristics that are often wrong
+4. State transitions add latency (must be uncertain for X ms before going off-script)
+
+**Prevention:**
+
+If you need states, make them reflect *user* behavior, not system assessment:
+
+```javascript
+// Better: States that reflect user behavior
+const UserState = {
+  SPEAKING_ON_SCRIPT: 'speaking',  // We're matching
+  PAUSED: 'paused',                // No audio input
+  AD_LIBBING: 'ad-libbing'         // Audio input, no matches
+};
+```
+
+Or: Don't use a state machine at all. Just react to match results directly:
+- Match found: scroll to match (with positional weighting)
+- No match: hold position
+- No audio: hold position
+
+**Connection to v1.0 failures:**
+
+v1.0's state machine drove the "too sensitive AND not sensitive enough" problem. When uncertain, it slowed scrolling. When off-script, it stopped. But the transitions between states were based on confidence thresholds and timing, not on actual user behavior. The user would pause for 0.5 seconds (uncertain) then continue (confident again) - causing visible scroll speed oscillation.
+
+---
+
+### 6. Fuzzy Matching Without Boundaries
+
+**What the mistake looks like:**
+
+Using fuzzy matching (Fuse.js) with a single threshold applied globally.
+
+```javascript
+this.threshold = 0.3;  // Same threshold everywhere
+// A 0.3 match on "the" is meaningless
+// A 0.3 match on "Gettysburg" is significant
+```
+
+**Why it seems reasonable:**
+
+"Fuse.js handles paraphrasing. A threshold of 0.3 catches most variations."
+
+**Why it fails:**
+
+1. Short common words match everything ("the", "and", "we")
+2. Long unique words need less fuzzy matching
+3. A single threshold can't be right for both cases
+4. Fuse.js scores aren't calibrated to meaning
+
+**Prevention:**
+
+Either:
+1. Match on phrases, not words (reduces common-word noise)
+2. Use word-length-adjusted thresholds
+3. Require consecutive matches to confirm position
+
+```javascript
+// Word-length adjusted threshold
+function getThreshold(word) {
+  if (word.length <= 3) return 0.1;  // Short words: near-exact
+  if (word.length <= 6) return 0.25; // Medium words
+  return 0.4;                         // Long words: more tolerance
+}
+```
+
+**Connection to v1.0 failures:**
+
+v1.0's `minConsecutiveMatches: 2` helped but wasn't enough. Phrases like "that we" could match in multiple places. The combination of fuzzy + no positional bias meant common short words dominated matching behavior.
+
+---
+
+### 7. Treating All Directions Equally
+
+**What the mistake looks like:**
+
+Symmetric handling of forward and backward movement.
+
+```javascript
+// v1.0: Different thresholds, but still searched backward
+this.forwardSkipConfidence = 0.85;
+this.backwardSkipConfidence = 0.92;  // Higher, but still allowed
+```
+
+**Why it seems reasonable:**
+
+"Users might skip backward. We should support that."
+
+**Why it fails:**
+
+1. Backward skips are rare in natural reading
+2. Backward matches are usually errors (repeated phrases)
+3. High threshold isn't enough - the match exists and might clear it
+4. Allowing backward at all creates a failure mode
+
+**Prevention:**
+
+Make backward movement an explicit user action, not an automatic behavior:
+- Forward: automatic with positional bias
+- Backward: only via manual override (click, button, voice command)
+
+Or: Require much stronger evidence for backward (consecutive match must span across the "jump back" point).
+
+**Connection to v1.0 failures:**
+
+v1.0's backward skip detection with high threshold still allowed backward jumps when repeated phrases had high match quality. The failure mode: user says "we cannot" (first occurrence), system matches "we cannot" (third occurrence later in script), then matches second occurrence backward.
+
+---
+
+### 8. Animation Hiding Logical Problems
+
+**What the mistake looks like:**
+
+Smooth scroll animations that mask jumpy underlying position logic.
+
+```javascript
+// Smooth easing to target
+this.currentSpeed = this.easeToward(
+  this.currentSpeed, targetSpeed, deltaMs, timeConstant
+);
+```
+
+**Why it seems reasonable:**
+
+"Users want smooth scrolling. Animation makes everything feel better."
+
+**Why it fails:**
+
+1. The target position might be wrong - smoothly scrolling to wrong position is still wrong
+2. Animation adds latency between decision and visible effect
+3. When the target changes rapidly, animation creates oscillation
+4. Debugging is harder because you can't see the logical jumps
+
+**Prevention:**
+
+Get the position logic right first, then add animation. During development:
+1. Use immediate position updates to see logical behavior
+2. Add animation only after position logic is stable
+3. Keep animation time constants small enough that errors are visible
+
+**Connection to v1.0 failures:**
+
+v1.0's smooth scrolling made the "display ahead of user" problem less obvious but didn't fix it. The scroll would smoothly drift ahead, then users would notice they were behind the display, then they'd catch up - but the fundamental problem (speculative positioning) was hidden by nice animation.
+
+---
+
+### 9. Insufficient Silence Handling
+
+**What the mistake looks like:**
+
+Not distinguishing between "no audio" (user paused) and "audio but no match" (user ad-libbing).
+
+```javascript
+// v1.0: silenceThreshold triggered both cases
+if (timeSinceMatch > this.silenceThreshold) {
+  this.scrollState = ScrollState.UNCERTAIN;
+}
+```
+
+**Why it seems reasonable:**
+
+"Both result in no matches, so handle them the same way."
+
+**Why it fails:**
+
+1. Paused user: should hold position, ready to resume
+2. Ad-libbing user: should hold position, don't scroll ahead
+3. Both have same system-level signal but different correct responses
+4. Treating them the same adds latency to pause recovery
+
+**Prevention:**
+
+Use audio-level detection separate from match detection:
+
+```javascript
+const hasAudio = audioLevel > silenceFloor;
+const hasMatch = matchResult.position !== null;
+
+if (!hasAudio) {
+  // User paused - hold, but ready to resume instantly
+  state = 'paused';
+} else if (!hasMatch) {
+  // User speaking but not matching - ad-lib
+  state = 'ad-libbing';
+} else {
+  // Matched - update position
+  state = 'tracking';
+}
+```
+
+**Connection to v1.0 failures:**
+
+v1.0 added silence detection (`silenceThreshold: 500ms`) but it was overlaid on the same confidence logic. A user pausing briefly (300ms) would get different treatment than one pausing longer (600ms) - even though both should just hold position.
+
+---
+
+## New Pitfalls (Beyond v1.0)
+
+### 10. Over-Correcting from v1.0
+
+**The risk:** The v1.1 rewrite swings too far in the opposite direction.
+
+**Examples:**
+- v1.0 had too many parameters -> v1.1 has zero tuning, even for legitimate preferences
+- v1.0 was speculative -> v1.1 is so conservative it feels laggy
+- v1.0 searched everywhere -> v1.1 only searches immediate vicinity, missing legitimate skips
+
+**Prevention:**
+
+Start conservative, but measure:
+- Track latency between speech and scroll response
+- Track false positive rate (unwanted jumps)
+- Have escape hatches for edge cases (manual position reset)
+
+---
+
+### 11. Font Size Scroll Distance Coupling
+
+**The risk:** Scroll distance in pixels doesn't account for font size changes.
+
+If user increases font size:
+- Same "scroll 100 pixels" moves fewer words
+- Speaking pace -> scroll speed calculation becomes wrong
+- Position tracking might work but scroll behavior breaks
+
+**Prevention:**
+
+Express scroll targets in *word positions*, not pixels. Calculate pixel distance at render time based on current layout.
+
+---
+
+### 12. Web Speech API Timing Assumptions
+
+**The risk:** Assuming Web Speech API behaves consistently.
+
+Reality:
+- Interim results come at variable intervals
+- Final results may revise earlier interim results
+- Recognition can restart mid-word
+- Different browsers have different timing
+
+**Prevention:**
+
+Design for asynchronous, potentially contradictory input:
+- Don't assume interim results are stable
+- Wait for final results before high-confidence actions
+- Handle recognition restart gracefully
+
+---
+
+### 13. Script Content Edge Cases
+
+**The risk:** Algorithms tuned for prose fail on other content.
+
+Edge cases:
+- Numbers ("fifteen" might be recognized as "15")
+- Abbreviations ("USA" vs "U S A")
+- Names (may be consistently misrecognized)
+- Technical terms (ASR doesn't know them)
+- Poetry/lyrics (repeated refrains)
+
+**Prevention:**
+
+Test with diverse content, not just Gettysburg Address. Include:
+- A speech with numbers
+- A technical document
+- A poem with repeated lines
+- A script with unusual names
+
+---
+
+## Prevention Strategies
+
+### Strategy 1: Confirmed Position Model
+
+**Principle:** One position concept, only updated on confirmation.
+
+```javascript
+class PositionTracker {
+  confirmedPosition = 0;
+
+  update(matchResult) {
+    if (this.isConfident(matchResult)) {
+      this.confirmedPosition = matchResult.position;
     }
-  }
-};
-```
-
-**Warning signs:**
-- Teleprompter scrolls jerkily or jumps back and forth
-- High CPU usage from constant re-matching
-- Scroll position never settles
-- Different behavior when speaking slowly vs. quickly
-
-**Phase to address:**
-Phase 1 (Core speech tracking) - Critical for basic usability. Interim result handling must be correct from the start.
-
----
-
-### Pitfall 3: Semantic Matching Without Validation
-
-**What goes wrong:**
-Relying solely on LLM-based or semantic matching for paraphrase detection causes false positives. The system confidently matches "let's talk about revenue" to a script section about "discuss our earnings" even when the speaker is in a completely different part of the script. The teleprompter jumps to the wrong section, disorienting the speaker.
-
-**Why it happens:**
-Semantic similarity algorithms find matches based on meaning, not position in document. Multiple sections of a script may have semantically similar content. Without positional context or validation, the matcher picks the first/best semantic match regardless of where the speaker actually is.
-
-**How to avoid:**
-Combine semantic matching with positional context and confidence scoring:
-
-1. **Positional bias**: Weight matches near current position higher than distant matches
-2. **Sequence validation**: Require multiple consecutive matches before jumping positions
-3. **Confidence thresholds**: Reject low-confidence semantic matches, fall back to exact matching
-4. **Direction constraints**: Prevent backward jumps unless user explicitly rewinds
-
-```javascript
-function findMatch(transcript, currentPosition) {
-  const candidates = semanticMatch(transcript);
-
-  // Filter by proximity to current position
-  const nearby = candidates.filter(c =>
-    Math.abs(c.position - currentPosition) < PROXIMITY_THRESHOLD
-  );
-
-  if (nearby.length > 0) {
-    return nearby[0]; // Prefer nearby matches
+    // Otherwise: no change
   }
 
-  // Only accept distant matches if high confidence
-  const highConfidence = candidates.filter(c => c.score > 0.9);
-  if (highConfidence.length > 0) {
-    return highConfidence[0];
+  isConfident(matchResult) {
+    // Position is intrinsic to confidence
+    const distance = matchResult.position - this.confirmedPosition;
+    const positionWeight = 1 / (1 + distance * 0.1);
+    return matchResult.matchQuality * positionWeight > threshold;
   }
-
-  return null; // No confident match - stay put
 }
 ```
 
-**Warning signs:**
-- Teleprompter frequently jumps to wrong sections
-- Speaker reports "it's not following me"
-- Works well for unique text, fails on repetitive content
-- Testing on varied scripts shows inconsistent behavior
+### Strategy 2: Derive, Don't Configure
 
-**Phase to address:**
-Phase 2 (Smart matching) - After basic exact matching works, add semantic matching with proper validation. Don't attempt this in Phase 1.
+**Principle:** Derive behavior from observable speech characteristics.
 
----
+| Instead of | Derive from |
+|------------|-------------|
+| `scrollSpeed` parameter | Observed words per second |
+| `confidenceThreshold` | Position distance + match quality |
+| `skipThreshold` | Current position (can only skip forward) |
+| `dwellTime` | Nothing - act immediately on confident match |
 
-### Pitfall 4: Latency Accumulation from Multiple Processing Steps
+### Strategy 3: Strong Positional Bias
 
-**What goes wrong:**
-The system becomes sluggish and unresponsive. By the time the teleprompter scrolls, the speaker has already moved on to the next section. The delay is noticeable: speech → transcription (300ms) → semantic matching (200ms) → confidence scoring (100ms) → scroll animation (200ms) = 800ms total latency. This breaks the "follows you naturally" value proposition.
-
-**Why it happens:**
-Each processing step adds latency. Semantic matching via embeddings or LLM calls is computationally expensive. Running on every transcription result without optimization causes blocking operations that delay scroll updates.
-
-**How to avoid:**
-Optimize the critical path ruthlessly:
-
-1. **Use exact string matching first** - Fast O(n) substring search before expensive semantic matching
-2. **Debounce semantic matching** - Only run on final results, not interim
-3. **Precompute embeddings** - Generate script embeddings once at load, not per-match
-4. **Async processing** - Run matching in Web Worker to avoid blocking UI
-5. **Smooth scroll with CSS** - Use `scroll-behavior: smooth` instead of JS animation
-6. **Progressive enhancement** - Start with fast exact matching, add semantic layer only if needed
+**Principle:** Distance is the primary confidence factor.
 
 ```javascript
-// BAD - synchronous blocking operations
-recognition.onresult = (event) => {
-  const transcript = event.results[0][0].transcript;
-  const embedding = await generateEmbedding(transcript); // 200ms BLOCK
-  const match = await semanticSearch(embedding); // 100ms BLOCK
-  scrollTo(match.position); // Another 200ms
-};
-
-// GOOD - fast path for exact matches
-recognition.onresult = (event) => {
-  const transcript = event.results[0][0].transcript;
-
-  // Fast exact match (1-5ms)
-  const exactMatch = scriptText.indexOf(transcript);
-  if (exactMatch !== -1) {
-    scrollTo(exactMatch); // Immediate feedback
-    return;
-  }
-
-  // Fallback to semantic (only if exact fails)
-  worker.postMessage({ type: 'semanticMatch', transcript });
-};
-```
-
-**Warning signs:**
-- Noticeable delay between speaking and scrolling
-- CPU spikes during transcription
-- Browser becomes unresponsive
-- Performance degrades over time (memory leaks)
-- Different performance on fast vs. slow devices
-
-**Phase to address:**
-Phase 1 (Core speech tracking) - Latency requirements must be defined early. Measure and optimize from the start, not as an afterthought.
-
----
-
-### Pitfall 5: No Error Recovery Strategy
-
-**What goes wrong:**
-When speech recognition fails (network error, permission denied, language pack missing), the app becomes completely unusable with no way to recover except refreshing the page. Users lose their place in the script and any session state.
-
-**Why it happens:**
-Developers focus on the happy path and don't implement comprehensive error handling. Web Speech API errors are inconsistent across browsers, making them hard to test. The `error` event fires but the app doesn't know how to recover.
-
-**How to avoid:**
-Implement graceful degradation and recovery for every error type:
-
-```javascript
-recognition.onerror = (event) => {
-  console.error('Speech recognition error:', event.error);
-
-  switch(event.error) {
-    case 'network':
-      // Try to restart with exponential backoff
-      retryWithBackoff();
-      showNotification('Connection lost. Retrying...');
-      break;
-
-    case 'not-allowed':
-      // Permission denied - show manual controls
-      showManualScrollMode();
-      showNotification('Microphone access required. Enable in settings or use manual mode.');
-      break;
-
-    case 'no-speech':
-      // Timeout - restart automatically
-      recognition.start();
-      break;
-
-    case 'aborted':
-      // User or browser stopped it - check if intentional
-      if (!userInitiatedStop) {
-        recognition.start();
-      }
-      break;
-
-    case 'audio-capture':
-      // Microphone hardware issue
-      showNotification('Microphone not found. Check hardware or use manual mode.');
-      showManualScrollMode();
-      break;
-
-    case 'language-not-supported':
-      // Missing language pack for on-device
-      showNotification('Language pack downloading...');
-      installLanguagePack().then(() => recognition.start());
-      break;
-
-    default:
-      // Unknown error - fall back to manual
-      showManualScrollMode();
-      showNotification('Voice control unavailable. Using manual mode.');
-  }
-};
-```
-
-**Warning signs:**
-- App breaks on permission denial
-- No feedback when mic isn't working
-- Errors logged to console but user sees nothing
-- No way to switch to manual scrolling
-- Testing only done on developer's machine (permissions already granted)
-
-**Phase to address:**
-Phase 1 (Core speech tracking) - Error handling is not optional. Must be implemented alongside the happy path.
-
----
-
-### Pitfall 6: Microphone Permission UX Disaster
-
-**What goes wrong:**
-Users are immediately confronted with a browser permission dialog on page load before understanding what the app does or why it needs mic access. Many users deny permission reflexively. The app then shows an error or broken UI with no clear path forward.
-
-**Why it happens:**
-Calling `recognition.start()` immediately on page load triggers the permission prompt. Browsers show scary permission dialogs with no context from the app. Users trained to deny permissions for privacy reasons reject the request.
-
-**How to avoid:**
-Progressive permission request with clear explanation:
-
-1. **Show onboarding first** - Explain what the app does before requesting permissions
-2. **Explicit user action** - Only request permission when user clicks "Start Voice Control"
-3. **Explain the ask** - Show custom UI explaining why mic access is needed
-4. **Provide alternatives** - Offer manual scroll mode for users who deny permission
-5. **Handle denial gracefully** - Don't break, just disable voice features
-
-```javascript
-// BAD - immediate permission request
-window.addEventListener('load', () => {
-  recognition.start(); // Permission dialog appears immediately
-});
-
-// GOOD - user-initiated with context
-startVoiceButton.addEventListener('click', async () => {
-  // Show explanation modal first
-  const userConsents = await showPermissionExplanation();
-  if (!userConsents) return;
-
-  try {
-    recognition.start(); // User understands why
-  } catch (e) {
-    if (e.name === 'NotAllowedError') {
-      showPermissionDeniedHelp(); // Guide user to settings
-    }
-  }
-});
-```
-
-**Warning signs:**
-- High permission denial rate in analytics
-- Users complaining app "doesn't work"
-- No manual scroll fallback mode
-- Permission dialog shown before app loads
-- No explanation of why mic is needed
-
-**Phase to address:**
-Phase 1 (Core speech tracking) - UX pattern must be correct from MVP. Changing permission flow later is difficult.
-
----
-
-### Pitfall 7: Testing Only with Clean Audio and Perfect Scripts
-
-**What goes wrong:**
-The app works perfectly in the quiet developer's home office with carefully written test scripts. In production, users encounter: background noise (HVAC, traffic, other people), mumbly speech, microphone issues, accents, and scripts with typos/formatting issues. The matching algorithm fails catastrophically in real conditions.
-
-**Why it happens:**
-Testing bias toward ideal conditions. Developers use good microphones in quiet rooms speaking clearly from well-formatted scripts. Real users present at conferences, record in bedrooms with poor acoustics, speak while nervous, and import scripts from various sources.
-
-**How to avoid:**
-Test systematically with degraded conditions:
-
-1. **Noisy environments**: Coffee shop, construction, office with HVAC
-2. **Poor microphones**: Laptop built-in, cheap headsets, phone speakers
-3. **Varied speakers**: Different accents, speaking speeds, voice pitches
-4. **Real scripts**: Copied from Word (formatting issues), OCR errors, typos
-5. **Edge cases**: Pauses, coughing, "um" filler words, repeated words
-
-Build in robustness:
-- Normalize both script and transcription (lowercase, trim, remove punctuation)
-- Implement fuzzy matching for small variations
-- Handle common filler words ("um", "uh", "like")
-- Detect and skip non-spoken elements (stage directions, notes)
-
-```javascript
-function normalizeForMatching(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '') // Remove punctuation
-    .replace(/\s+/g, ' ')    // Normalize whitespace
-    .trim();
-}
-
-function isFiller(word) {
-  return ['um', 'uh', 'like', 'you know'].includes(word.toLowerCase());
+function matchConfidence(matchQuality, distance) {
+  // Nearby match with mediocre quality > distant match with high quality
+  const positionFactor = Math.max(0, 1 - distance * 0.05);
+  return matchQuality * positionFactor;
 }
 ```
 
-**Warning signs:**
-- All testing done in same location
-- Same person doing all test speaking
-- Test scripts are pristine examples
-- No testing with background noise
-- Accuracy drops dramatically in demos/real usage
+### Strategy 4: Never Ahead of User
 
-**Phase to address:**
-Phase 1 (Core speech tracking) - Test with realistic conditions from the start. Phase 2 (Smart matching) - Add robustness features based on real-world testing.
+**Principle:** Display can lag but never lead.
+
+1. Only scroll to confirmed positions
+2. If no confirmation, hold current position
+3. Scroll speed <= speaking speed (catch up, don't predict)
+4. Visual caret is at confirmed position, not target
+
+### Strategy 5: Explicit Over Inferred
+
+**Principle:** When in doubt, require explicit user action.
+
+| Behavior | v1.0 (inferred) | v1.1 (explicit) |
+|----------|-----------------|-----------------|
+| Backward skip | Automatic with high threshold | Manual click/command |
+| Large forward skip | Automatic with dwell time | Confirm with consecutive words |
+| Resume after pause | Automatic after threshold | Immediate on next match |
 
 ---
 
-## Technical Debt Patterns
+## Testing Considerations
 
-Shortcuts that seem reasonable but create long-term problems.
+### Red Flags (You're Falling Into Pitfalls)
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Using interim results for matching | Appears responsive | Jumpy scroll, high CPU, unstable matching | Never - use for visual feedback only |
-| Skipping error handling | Faster development | App breaks for users, no recovery path | Never - errors are common with Web Speech API |
-| LLM API for every match | Perfect paraphrase handling | Latency, API costs, rate limits | Never - use client-side embeddings or exact match first |
-| No manual scroll fallback | Simpler codebase | Unusable when voice fails (10-20% of users) | Never - manual mode is critical |
-| Testing only in Chrome | Single browser to test | Breaks in Safari, Firefox, mobile browsers | Only for early prototypes, must test all browsers before launch |
-| Synchronous semantic matching | Easier to reason about | Blocks UI thread, sluggish performance | Only for initial prototype, must move to Web Worker |
-| Keeping recognition.continuous = false | More predictable | Requires clicking after every phrase | Early prototypes only, must support continuous for real use |
+1. **Adding parameters to fix edge cases** - Step back and question the model
+2. **Animation feels smooth but position is wrong** - Turn off animation, verify logic
+3. **State machine has more than 3 states** - Probably over-engineered
+4. **Confidence calculation has more than 2 factors** - Simplify
+5. **Tests pass on Gettysburg but fail on other content** - Need diverse test corpus
+6. **"Just need to tune the threshold"** - Wrong abstraction
 
-## Integration Gotchas
+### Test Scenarios
 
-Common mistakes when connecting to external services.
+| Scenario | Expected | v1.0 Failure |
+|----------|----------|--------------|
+| Read straight through | Smooth following | Worked |
+| Pause 2 seconds | Hold position | Worked |
+| Pause 10 seconds | Still holds | Worked |
+| Skip 5 words | Follow naturally | Sometimes false jumped |
+| Skip 50 words | Confirm then jump | Sometimes false jumped |
+| Ad-lib for 10 seconds | Hold position | Scrolled ahead |
+| Repeated phrase | Match correct instance | Jumped to wrong instance |
+| Change font size mid-read | Scroll adjusts | Scroll distance wrong |
+| Speak very fast | Keep up | Fell behind |
+| Speak very slow | Don't race ahead | Got ahead |
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| Web Speech API | Assuming it works offline | Check browser, plan for server-based recognition. Consider on-device with `processLocally = true` for privacy |
-| Microphone access | Requesting permission on page load | Request on user action with explanation. Provide manual fallback |
-| Embedding models (for semantic matching) | Calling API on every transcription | Precompute script embeddings at load. Use local models (transformers.js) or cache API results |
-| Browser compatibility | Testing only in Chrome | Web Speech API support varies. Test Chrome, Safari, Firefox, Edge. Implement feature detection |
-| Language packs (on-device) | Assuming they're installed | Call `SpeechRecognition.available()` first, handle installation flow |
+### Measurement Criteria
 
-## Performance Traps
+1. **Latency:** Time from spoken word to scroll response (target: <300ms)
+2. **False positive rate:** Unwanted position jumps (target: <5%)
+3. **False negative rate:** Failed to track correct position (target: <5%)
+4. **Recovery time:** Time to re-sync after desync (target: <2s)
+5. **Parameter count:** Number of tunables (target: <=3)
 
-Patterns that work at small scale but fail as usage grows.
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Matching against entire script each time | Works for short scripts | Use sliding window or index-based search. Limit search scope based on current position | Scripts > 5000 words, matching takes >100ms |
-| Keeping all transcription history in memory | Easy to debug early on | Limit buffer to last N results (50-100). Clear old results | Sessions > 30 minutes, memory usage grows unbounded |
-| Re-rendering entire script on every update | Simple React state | Use virtualized scrolling (react-window). Only render visible lines | Scripts > 100 lines cause frame drops |
-| Regenerating embeddings on script edit | No caching needed for static scripts | Cache embeddings, only regenerate changed sections | User edits script during session |
-| Running semantic matching on UI thread | Responsive for first few matches | Use Web Worker for all heavy computation | Noticeable lag after 10-20 matches |
-
-## Security Mistakes
-
-Domain-specific security issues beyond general web security.
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Not using HTTPS | getUserMedia blocked in non-secure contexts | Enforce HTTPS, use localhost for dev |
-| Sending audio to unknown servers | Privacy violation, Web Speech API default | Use `processLocally = true` or disclose server usage in privacy policy |
-| Storing transcriptions without consent | GDPR/privacy violations | Clear user consent, provide deletion. Consider not storing audio at all |
-| No Content Security Policy for mic | Malicious iframes could access mic | Set Permissions-Policy: microphone=(self) header |
-| Allowing cross-origin iframe embedding | Third parties could spy via your mic permission | Disallow iframe embedding or restrict to trusted origins |
-
-## UX Pitfalls
-
-Common user experience mistakes in this domain.
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Hijacking scroll control | User loses ability to review earlier text | Allow manual scroll override. Pause voice tracking when user manually scrolls |
-| No visual indicator of listening state | User doesn't know if mic is working | Show clear visual: "Listening...", "Processing...", "Paused" with mic icon animation |
-| Scrolling too fast/smooth | User loses their place, gets motion sick | Match scroll speed to speaking pace. Use instant scroll for large jumps, smooth for nearby |
-| No confidence feedback | User doesn't know when matching fails | Show match confidence visually: highlight matched text, dim on low confidence |
-| Auto-scroll during user interaction | Scrolls away while user is reading/editing | Pause auto-scroll when user focuses on script text or uses keyboard |
-| Not showing what was heard | User can't debug why matching failed | Display recent transcriptions in debug panel (can be hidden by default) |
-| Requiring perfect pronunciation | Frustrating for users with accents or speech impediments | Use fuzzy matching, allow threshold adjustment, provide manual positioning |
-
-## "Looks Done But Isn't" Checklist
-
-Things that appear complete but are missing critical pieces.
-
-- [ ] **Voice tracking:** Often missing automatic restart on `speechend` — verify continuous operation for 5+ minutes
-- [ ] **Semantic matching:** Often missing positional context — verify doesn't jump to wrong similar sections
-- [ ] **Error handling:** Often missing all error cases — verify handles: permission denied, no-speech, network, audio-capture, language-not-supported
-- [ ] **Manual fallback:** Often missing entirely — verify keyboard/mouse scroll works when voice disabled
-- [ ] **Permission flow:** Often missing explanation — verify users see why mic is needed before browser permission prompt
-- [ ] **Browser compatibility:** Often missing Safari/Firefox testing — verify in all major browsers, not just Chrome
-- [ ] **Noisy environment:** Often missing robustness — verify works with background noise, not just quiet studio
-- [ ] **Performance:** Often missing optimization — verify smooth operation on low-end devices, long scripts, extended sessions
-- [ ] **Privacy disclosure:** Often missing — verify users know if audio goes to servers (Web Speech API default behavior)
-- [ ] **Visual feedback:** Often missing state indicators — verify users can see: listening status, match confidence, transcription output
-
-## Recovery Strategies
-
-When pitfalls occur despite prevention, how to recover.
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Interim results causing jumpy scroll | LOW | Disable `interimResults`, refactor to use only `isFinal` results. 1-2 hours |
-| No error handling | MEDIUM | Add comprehensive error handler with fallbacks. 1 day to handle all error types |
-| LLM latency breaking UX | MEDIUM | Replace API with client-side model (transformers.js) or exact matching. 2-3 days |
-| No manual scroll fallback | MEDIUM | Build manual mode UI, state management for mode switching. 2-3 days |
-| Matching against full script is slow | LOW | Implement sliding window search or position-based indexing. 4-8 hours |
-| Web Speech API stops unexpectedly | LOW | Add restart logic in `speechend` and `end` handlers. 2-4 hours |
-| Permission denied with no path forward | MEDIUM | Add permission explanation modal, manual mode, settings help. 1 day |
-| Browser compatibility issues | HIGH | Requires cross-browser testing, polyfills, graceful degradation. 3-5 days |
-| Semantic matching false positives | MEDIUM | Add positional bias, confidence thresholds, sequence validation. 2-3 days |
-| Memory leaks in long sessions | MEDIUM | Profile with Chrome DevTools, limit buffers, clear old results. 1-2 days |
-
-## Pitfall-to-Phase Mapping
-
-How roadmap phases should address these pitfalls.
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Web Speech API stops unexpectedly | Phase 1: Core speech tracking | Test continuous operation for 10+ minutes without manual intervention |
-| Interim results create false matches | Phase 1: Core speech tracking | Verify scroll position stable with interim results disabled |
-| No error recovery | Phase 1: Core speech tracking | Trigger each error type, verify graceful degradation |
-| Permission UX disaster | Phase 1: Core speech tracking | Test with fresh browser profile (no permissions), measure acceptance rate |
-| Latency accumulation | Phase 1: Core speech tracking | Measure speech-to-scroll latency < 500ms on mid-range device |
-| Testing only clean conditions | Phase 1 & 2: All phases | Test matrix: 3 noise levels × 3 mic qualities × 3 speakers × 5 scripts |
-| Semantic matching without validation | Phase 2: Smart matching | Test on scripts with repetitive content, verify no false jumps |
-| No manual fallback | Phase 1: Core speech tracking | Verify keyboard/mouse scroll works with voice disabled |
-| Browser compatibility gaps | Phase 1: Core speech tracking | Test in Chrome, Safari, Firefox, Edge on desktop + mobile |
-| Performance with long scripts | Phase 3: Polish/optimization | Test with 10,000 word script, 60 fps scroll, < 200ms match time |
+---
 
 ## Sources
 
-**Official Documentation (HIGH confidence):**
-- [Using the Web Speech API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API)
-- [SpeechRecognition API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition)
-- [SpeechRecognition: interimResults - MDN](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/interimResults)
-- [SpeechRecognition: continuous - MDN](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/continuous)
-- [getUserMedia() - MDN](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia)
+### Codebase Analysis (HIGH confidence)
 
-**2026 Technical Resources (MEDIUM confidence):**
-- [Top APIs and models for real-time speech recognition 2026 - AssemblyAI](https://www.assemblyai.com/blog/best-api-models-for-real-time-speech-recognition-and-transcription)
-- [Real-Time Speech to Text: Live Transcription Guide - AssemblyAI](https://www.assemblyai.com/blog/real-time-speech-to-text)
-- [Top 7 Speech Recognition Challenges & Solutions 2026 - AIMultiple](https://research.aimultiple.com/speech-recognition-challenges/)
-- [Understanding Latency in Speech Recognition - Picovoice](https://picovoice.ai/blog/latency-in-speech-recognition/)
+- `/Users/brent/project/matching/TextMatcher.js` - v1.0 matching implementation with proximity search
+- `/Users/brent/project/matching/ScrollSync.js` - v1.0 scroll state machine with 15+ parameters
+- `/Users/brent/project/matching/ConfidenceLevel.js` - v1.0 confidence calculation
+- `/Users/brent/project/.planning/PROJECT.md` - v1.0 failure documentation and v1.1 goals
+- `/Users/brent/project/.planning/STATE.md` - v1.1 design principles
 
-**UX Research (MEDIUM confidence):**
-- [Scrolljacking 101 - Nielsen Norman Group](https://www.nngroup.com/articles/scrolljacking-101/)
-- [Avoid Scrolljacking and Smooth-scroll Effects - Beamtic](https://beamtic.com/scrolljacking-a-ux-problem)
-- [The Impact of Smooth Scrolling on Accessibility - The Admin Bar](https://theadminbar.com/accessibility-weekly/watch-out-for-smooth-scroll/)
-- [Scrolling Effects in Web Design 2026 - Digital Silk](https://www.digitalsilk.com/digital-trends/scrolling-effects/)
+### Web Research (MEDIUM confidence)
 
-**Fuzzy/Semantic Matching (MEDIUM confidence):**
-- [Fuzzy Matching and Semantic Search - iPullRank](https://ipullrank.com/fuzzy-matching-semantic-search)
-- [What is Fuzzy Matching? - Redis](https://redis.io/blog/what-is-fuzzy-matching/)
-- [Understanding Confidence Scores in ML - Mindee](https://www.mindee.com/blog/how-use-confidence-scores-ml-models)
-
-**Voice Teleprompter Domain (LOW confidence - limited specific research):**
-- [Voice activated teleprompter - Scripted.video](https://scripted.video/support/voice-activated-teleprompter-app/)
-- [5 Teleprompter Mistakes - Voiceplace](https://voiceplace.com/teleprompter-mistakes-be-aware/)
+- [PromptSmart teleprompter](https://apps.apple.com/us/app/promptsmart-pro-teleprompter/id894811756) - Voice tracking confusion with repeated phrases
+- [Open source voice teleprompter](https://github.com/jlecomte/voice-activated-teleprompter) - Robustness challenges
+- [Forced alignment challenges](https://www.futurebeeai.com/knowledge-hub/forced-alignment-speech) - Speech-text alignment fundamentals
+- [State pattern over-engineering](https://refactoring.guru/design-patterns/state) - When state machines are overkill
+- [Confidence score pitfalls](https://www.mindee.com/blog/how-use-confidence-scores-ml-models) - Threshold tuning challenges
+- [Scroll position UX](https://www.nngroup.com/articles/saving-scroll-position/) - User mental model for scroll
+- [Speech rate estimation](https://pmc.ncbi.nlm.nih.gov/articles/PMC2860302/) - Robust pace calculation
+- [DTW limitations](https://en.wikipedia.org/wiki/Dynamic_time_warping) - Over-warping and constraint issues
 
 ---
-*Pitfalls research for: AI voice-controlled teleprompter*
-*Researched: 2026-01-22*
+
+*Research mode: Pitfalls*
+*Confidence: HIGH - Based on v1.0 code analysis + domain research*
