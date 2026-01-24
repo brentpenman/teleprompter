@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Core Display & Manual Control** - Broadcast-style teleprompter with manual scroll
 - [x] **Phase 2: Speech Recognition Foundation** - Reliable speech capture with error handling
 - [x] **Phase 3: Basic Text Matching** - Match spoken words to script position
-- [ ] **Phase 4: Intelligent Scroll Control** - Confidence-based auto-scroll with pause detection
+- [x] **Phase 4: Intelligent Scroll Control** - Confidence-based auto-scroll with pause detection
 
 ## Phase Details
 
@@ -80,10 +80,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Confidence calculator and AudioVisualizer confidence display
-- [ ] 04-02-PLAN.md — Remove Highlighter dimming
-- [ ] 04-03-PLAN.md — TextMatcher confidence + ScrollSync state machine
-- [ ] 04-04-PLAN.md — Integration and human verification
+- [x] 04-01-PLAN.md — Confidence calculator and AudioVisualizer confidence display
+- [x] 04-02-PLAN.md — Remove Highlighter dimming
+- [x] 04-03-PLAN.md — TextMatcher confidence + ScrollSync state machine
+- [x] 04-04-PLAN.md — Integration and human verification
 
 ## Progress
 
@@ -95,4 +95,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Core Display & Manual Control | 3/3 | Complete | 2026-01-22 |
 | 2. Speech Recognition Foundation | 3/3 | Complete | 2026-01-22 |
 | 3. Basic Text Matching | 3/3 | Complete | 2026-01-22 |
-| 4. Intelligent Scroll Control | 0/4 | Not started | - |
+| 4. Intelligent Scroll Control | 4/4 | Complete | 2026-01-24 |
