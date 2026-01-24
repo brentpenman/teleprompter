@@ -73,15 +73,16 @@ describe('PositionTracker', () => {
       const tracker = new PositionTracker();
       expect(tracker.getScrollBoundary()).toBe(0);
 
+      // Use nearby position (within nearbyThreshold of 10)
       tracker.processMatch({
-        position: 15,
-        startPosition: 12,
+        position: 8,
+        startPosition: 5,
         matchCount: 4,
         combinedScore: 0.85,
-        startOffset: 70,
-        endOffset: 100
+        startOffset: 40,
+        endOffset: 70
       });
-      expect(tracker.getScrollBoundary()).toBe(15);
+      expect(tracker.getScrollBoundary()).toBe(8);
       expect(tracker.getScrollBoundary()).toBe(tracker.getConfirmedPosition());
     });
   });
@@ -231,16 +232,16 @@ describe('PositionTracker', () => {
     it('resets confirmedPosition to 0', () => {
       const tracker = new PositionTracker();
 
-      // Advance to some position
+      // Advance to nearby position (within nearbyThreshold of 10)
       tracker.processMatch({
-        position: 20,
-        startPosition: 15,
-        matchCount: 6,
+        position: 8,
+        startPosition: 5,
+        matchCount: 4,
         combinedScore: 0.9,
-        startOffset: 100,
-        endOffset: 150
+        startOffset: 40,
+        endOffset: 70
       });
-      expect(tracker.getConfirmedPosition()).toBe(20);
+      expect(tracker.getConfirmedPosition()).toBe(8);
 
       // Reset
       tracker.reset();
