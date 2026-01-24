@@ -325,4 +325,485 @@ describe('PositionTracker', () => {
       expect(result.confirmedPosition).toBe(0);
     });
   });
+
+  describe('skip detection with consecutive match confirmation', () => {
+    /**
+     * Skip detection adds distance-dependent consecutive matching:
+     * - distance <= 10 words (nearbyThreshold): require 1 match (normal tracking)
+     * - distance 10-50 words (small skip): require 4 consecutive matches
+     * - distance > 50 words (large skip): require 5 consecutive matches
+     *
+     * A match is "consecutive" if its startPosition is within 2 words of
+     * the previous match's endPosition (allows gap for filler word filtering).
+     */
+
+    describe('small skip (10-50 words)', () => {
+      it('returns exploring on first match 25 words ahead (1/4)', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+        expect(tracker.getConfirmedPosition()).toBe(5);
+
+        // User says words from 25 words ahead (position 30)
+        const result = tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        // Should be exploring, not advanced - need 4 consecutive for 25-word skip
+        expect(result.action).toBe('exploring');
+        expect(result.confirmedPosition).toBe(5); // Still at old position
+        expect(result.candidatePosition).toBe(30);
+        expect(result.consecutiveCount).toBe(1);
+        expect(result.requiredCount).toBe(4);
+      });
+
+      it('returns exploring on 2nd consecutive match (2/4)', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // 1st match at skip location (position 30)
+        tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        // 2nd consecutive match (position 31, starts within 2 of previous end)
+        const result = tracker.processMatch({
+          position: 31,
+          startPosition: 30, // Within 2 words of previous position (30)
+          matchCount: 2,
+          combinedScore: 0.85,
+          startOffset: 230,
+          endOffset: 250
+        });
+
+        expect(result.action).toBe('exploring');
+        expect(result.confirmedPosition).toBe(5);
+        expect(result.consecutiveCount).toBe(2);
+        expect(result.requiredCount).toBe(4);
+      });
+
+      it('returns exploring on 3rd consecutive match (3/4)', () => {
+        const tracker = new PositionTracker();
+
+        // Setup: at position 5, then 3 consecutive matches at skip location
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        tracker.processMatch({
+          position: 31,
+          startPosition: 30,
+          matchCount: 2,
+          combinedScore: 0.85,
+          startOffset: 230,
+          endOffset: 250
+        });
+
+        // 3rd consecutive match
+        const result = tracker.processMatch({
+          position: 32,
+          startPosition: 31,
+          matchCount: 2,
+          combinedScore: 0.88,
+          startOffset: 250,
+          endOffset: 270
+        });
+
+        expect(result.action).toBe('exploring');
+        expect(result.confirmedPosition).toBe(5);
+        expect(result.consecutiveCount).toBe(3);
+        expect(result.requiredCount).toBe(4);
+      });
+
+      it('advances on 4th consecutive match (4/4 - confirmed!)', () => {
+        const tracker = new PositionTracker();
+
+        // Setup: at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // 4 consecutive matches at skip location
+        tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        tracker.processMatch({
+          position: 31,
+          startPosition: 30,
+          matchCount: 2,
+          combinedScore: 0.85,
+          startOffset: 230,
+          endOffset: 250
+        });
+
+        tracker.processMatch({
+          position: 32,
+          startPosition: 31,
+          matchCount: 2,
+          combinedScore: 0.88,
+          startOffset: 250,
+          endOffset: 270
+        });
+
+        // 4th consecutive match - should confirm!
+        const result = tracker.processMatch({
+          position: 33,
+          startPosition: 32,
+          matchCount: 2,
+          combinedScore: 0.9,
+          startOffset: 270,
+          endOffset: 290
+        });
+
+        expect(result.action).toBe('advanced');
+        expect(result.confirmedPosition).toBe(33);
+        expect(tracker.getConfirmedPosition()).toBe(33);
+      });
+    });
+
+    describe('large skip (50+ words)', () => {
+      it('requires 5 consecutive matches for 60-word skip', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // 1st match at 60 words ahead (position 65)
+        const result = tracker.processMatch({
+          position: 65,
+          startPosition: 63,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 400,
+          endOffset: 430
+        });
+
+        expect(result.action).toBe('exploring');
+        expect(result.requiredCount).toBe(5); // Large skip needs 5
+      });
+
+      it('advances on 5th consecutive match for large skip', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // 5 consecutive matches at skip location (60 words ahead)
+        tracker.processMatch({
+          position: 65,
+          startPosition: 63,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 400,
+          endOffset: 430
+        });
+
+        tracker.processMatch({
+          position: 66,
+          startPosition: 65,
+          matchCount: 2,
+          combinedScore: 0.85,
+          startOffset: 430,
+          endOffset: 450
+        });
+
+        tracker.processMatch({
+          position: 67,
+          startPosition: 66,
+          matchCount: 2,
+          combinedScore: 0.88,
+          startOffset: 450,
+          endOffset: 470
+        });
+
+        tracker.processMatch({
+          position: 68,
+          startPosition: 67,
+          matchCount: 2,
+          combinedScore: 0.9,
+          startOffset: 470,
+          endOffset: 490
+        });
+
+        // 5th consecutive match - should confirm!
+        const result = tracker.processMatch({
+          position: 69,
+          startPosition: 68,
+          matchCount: 2,
+          combinedScore: 0.9,
+          startOffset: 490,
+          endOffset: 510
+        });
+
+        expect(result.action).toBe('advanced');
+        expect(result.confirmedPosition).toBe(69);
+      });
+    });
+
+    describe('streak management', () => {
+      it('resets streak on non-consecutive match', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // 1st match at skip location
+        tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        // 2nd consecutive match
+        tracker.processMatch({
+          position: 31,
+          startPosition: 30,
+          matchCount: 2,
+          combinedScore: 0.85,
+          startOffset: 230,
+          endOffset: 250
+        });
+
+        // Non-consecutive match (gap of 5 words, more than 2)
+        const result = tracker.processMatch({
+          position: 36,
+          startPosition: 36, // Gap of 5 from previous position 31
+          matchCount: 1,
+          combinedScore: 0.9,
+          startOffset: 280,
+          endOffset: 290
+        });
+
+        expect(result.action).toBe('exploring');
+        expect(result.consecutiveCount).toBe(1); // Reset to 1
+      });
+
+      it('resets streak counter on reset()', () => {
+        const tracker = new PositionTracker();
+
+        // Build up a streak
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        tracker.processMatch({
+          position: 31,
+          startPosition: 30,
+          matchCount: 2,
+          combinedScore: 0.85,
+          startOffset: 230,
+          endOffset: 250
+        });
+
+        // Reset the tracker
+        tracker.reset();
+
+        // Start fresh - skip should require full streak again
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        const result = tracker.processMatch({
+          position: 30,
+          startPosition: 28,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 200,
+          endOffset: 230
+        });
+
+        expect(result.consecutiveCount).toBe(1); // Fresh start
+      });
+    });
+
+    describe('nearby matches unchanged', () => {
+      it('immediately advances for distance <= 10 words (no consecutive requirement)', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // Match only 8 words ahead (within nearbyThreshold of 10)
+        const result = tracker.processMatch({
+          position: 13, // 8 words ahead of 5
+          startPosition: 11,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 80,
+          endOffset: 110
+        });
+
+        // Should immediately advance - no consecutive confirmation needed
+        expect(result.action).toBe('advanced');
+        expect(result.confirmedPosition).toBe(13);
+      });
+
+      it('immediately advances for distance exactly at nearbyThreshold', () => {
+        const tracker = new PositionTracker();
+
+        // Start at position 5
+        tracker.processMatch({
+          position: 5,
+          startPosition: 3,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 20,
+          endOffset: 40
+        });
+
+        // Match exactly 10 words ahead (at nearbyThreshold)
+        const result = tracker.processMatch({
+          position: 15, // 10 words ahead of 5
+          startPosition: 13,
+          matchCount: 3,
+          combinedScore: 0.9,
+          startOffset: 100,
+          endOffset: 130
+        });
+
+        // Should immediately advance - at threshold still counts as nearby
+        expect(result.action).toBe('advanced');
+        expect(result.confirmedPosition).toBe(15);
+      });
+    });
+
+    describe('getRequiredConsecutive', () => {
+      it('returns 1 for distance <= nearbyThreshold', () => {
+        const tracker = new PositionTracker({ nearbyThreshold: 10 });
+        expect(tracker.getRequiredConsecutive(5)).toBe(1);
+        expect(tracker.getRequiredConsecutive(10)).toBe(1);
+      });
+
+      it('returns 4 for small skip (distance 11-50)', () => {
+        const tracker = new PositionTracker({ nearbyThreshold: 10 });
+        expect(tracker.getRequiredConsecutive(11)).toBe(4);
+        expect(tracker.getRequiredConsecutive(25)).toBe(4);
+        expect(tracker.getRequiredConsecutive(50)).toBe(4);
+      });
+
+      it('returns 5 for large skip (distance > 50)', () => {
+        const tracker = new PositionTracker({ nearbyThreshold: 10 });
+        expect(tracker.getRequiredConsecutive(51)).toBe(5);
+        expect(tracker.getRequiredConsecutive(100)).toBe(5);
+      });
+
+      it('respects custom smallSkipConsecutive option', () => {
+        const tracker = new PositionTracker({
+          nearbyThreshold: 10,
+          smallSkipConsecutive: 3
+        });
+        expect(tracker.getRequiredConsecutive(25)).toBe(3);
+      });
+
+      it('respects custom largeSkipConsecutive option', () => {
+        const tracker = new PositionTracker({
+          nearbyThreshold: 10,
+          largeSkipConsecutive: 6
+        });
+        expect(tracker.getRequiredConsecutive(60)).toBe(6);
+      });
+    });
+  });
 });
