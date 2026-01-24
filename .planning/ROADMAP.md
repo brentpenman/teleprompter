@@ -94,11 +94,11 @@ Plans:
   3. User skips 20 words ahead and speaks 2+ consecutive matches - position jumps to new location
   4. User skips backward - app holds position (no automatic backward jump)
   5. App provides scroll boundary that external code can query (confirmedPosition + buffer)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: TBD (planned during phase planning)
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — TDD: Core PositionTracker with two-position model and monotonic constraint
+- [ ] 06-02-PLAN.md — TDD: Skip detection with distance-dependent consecutive matching
 
 ### Phase 7: ScrollController
 **Goal**: React to position confirmations to scroll display, keeping next words at caret and deriving speed from speech pace
@@ -141,7 +141,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Text Matching | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 4. Scroll Control | v1.0 | 4/4 | Complete | 2026-01-24 |
 | 5. WordMatcher | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 6. PositionTracker | v1.1 | 0/TBD | Not started | - |
+| 6. PositionTracker | v1.1 | 0/2 | Planned | - |
 | 7. ScrollController | v1.1 | 0/TBD | Not started | - |
 | 8. Integration | v1.1 | 0/TBD | Not started | - |
 
