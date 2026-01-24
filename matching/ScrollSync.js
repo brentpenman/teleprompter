@@ -42,22 +42,29 @@ export class ScrollSync {
     this.patientThreshold = options.patientThreshold || 500; // 0.5 seconds before off-script
     this.silenceThreshold = options.silenceThreshold || 500; // 0.5 seconds of no speech -> uncertain
 
-    // Easing time constants (ms)
-    this.accelerationTimeConstant = options.accelerationTimeConstant || 500;
-    this.decelerationTimeConstant = options.decelerationTimeConstant || 500;
-    this.resumeTimeConstant = options.resumeTimeConstant || 500;
+    // Easing time constants (ms) - tuned for responsive but smooth feel
+    this.accelerationTimeConstant = options.accelerationTimeConstant || 200;
+    this.decelerationTimeConstant = options.decelerationTimeConstant || 100;
+    this.resumeTimeConstant = options.resumeTimeConstant || 200;
 
-    // Position-based speed adjustment thresholds
-    this.behindThreshold = options.behindThreshold || 200;  // pixels behind before speedup
-    this.aheadThreshold = options.aheadThreshold || 100;    // pixels ahead before slowdown
-    this.behindMax = options.behindMax || 0;                // max multiplier addition when behind (0 = disabled)
+    // Position-based speed adjustment thresholds - tuned values
+    this.behindThreshold = options.behindThreshold || 80;   // pixels behind before speedup
+    this.aheadThreshold = options.aheadThreshold || 10;     // pixels ahead before slowdown
+    this.behindMax = options.behindMax || 0.03;             // gentle catchup when behind
 
-    // Skip detection
+    // Skip detection - conservative for texts with repeated phrases
+    // Gettysburg has "we cannot X" 3x within ~15 words, "the people" 3x at end
     this.shortSkipThreshold = 20;  // words - below this, smooth scroll
     this.longSkipThreshold = 100;  // words - above this, instant jump
-    this.maxSkip = options.maxSkip || 10;  // max words to skip in either direction
+    this.maxSkip = options.maxSkip || 25;  // conservative: ~10% of typical speech
     this.forwardSkipConfidence = 0.85;
     this.backwardSkipConfidence = 0.92;
+
+    // Match dwell time - must see same position for this long before acting
+    // Prevents transient false matches from causing jumps
+    this.matchDwellTime = options.matchDwellTime || 150; // ms
+    this.pendingMatchPosition = null;
+    this.pendingMatchStartTime = null;
 
     // Boundary tracking (never scroll past last matched position)
     this.lastMatchedPosition = 0; // word index of last confirmed match
@@ -120,10 +127,53 @@ export class ScrollSync {
       }
     }
 
-    // Update last matched position only if we have an accepted match
+    // Dwell time check - must see same position consistently before acting
+    // Small forward moves (1-3 words) are accepted immediately (natural reading)
+    // Larger moves require dwell time confirmation
     if (matchResult.position !== null && matchResult.level === 'high') {
+      const distance = matchResult.position - this.targetWordIndex;
+      const isSmallForward = distance >= 0 && distance <= 3;
+
+      if (isSmallForward) {
+        // Accept immediately - natural reading progression
+        positionAccepted = true;
+        this.pendingMatchPosition = null;
+        this.pendingMatchStartTime = null;
+      } else {
+        // Larger move - require dwell time
+        if (this.pendingMatchPosition === matchResult.position) {
+          // Same position as before - check dwell time
+          const dwellElapsed = now - this.pendingMatchStartTime;
+          if (dwellElapsed >= this.matchDwellTime) {
+            // Dwell time met - accept the match
+            positionAccepted = true;
+            console.log(`[Scroll] Match confirmed after ${dwellElapsed}ms dwell at position ${matchResult.position}`);
+          } else {
+            // Still waiting - don't accept yet
+            console.log(`[Scroll] Waiting for dwell (${dwellElapsed}/${this.matchDwellTime}ms) at position ${matchResult.position}`);
+          }
+        } else {
+          // New position - start dwell timer
+          this.pendingMatchPosition = matchResult.position;
+          this.pendingMatchStartTime = now;
+          console.log(`[Scroll] Starting dwell timer for position ${matchResult.position}`);
+        }
+      }
+    } else {
+      // No valid match - reset pending
+      this.pendingMatchPosition = null;
+      this.pendingMatchStartTime = null;
+    }
+
+    // Update last matched position only if we have an accepted match
+    if (positionAccepted && matchResult.position !== null) {
       this.lastMatchedPosition = Math.max(this.lastMatchedPosition, matchResult.position);
-      positionAccepted = true;
+    }
+
+    // Update lastMatchTime for ANY high-confidence match (even if waiting for dwell)
+    // This prevents silence detection from kicking in while we have good matches
+    if (matchResult.level === 'high' && matchResult.position !== null) {
+      this.lastMatchTime = now;
     }
 
     const effectiveLevel = matchResult.level;
@@ -131,10 +181,12 @@ export class ScrollSync {
     switch (this.scrollState) {
       case ScrollState.CONFIDENT:
         if (effectiveLevel === 'high') {
-          // Stay confident - update position
-          if (matchResult.position !== null) {
+          // Stay confident
+          if (positionAccepted) {
+            // Dwell met - update position
             this.handleMatch(matchResult);
           }
+          // If dwell pending, stay confident but don't move yet
         } else {
           // Becoming uncertain
           this.scrollState = ScrollState.UNCERTAIN;
@@ -144,10 +196,11 @@ export class ScrollSync {
 
       case ScrollState.UNCERTAIN:
         if (effectiveLevel === 'high') {
-          // Back to confident
+          // Back to confident (high confidence = confident, regardless of dwell)
           this.scrollState = ScrollState.CONFIDENT;
           this.uncertainStartTime = null;
-          if (matchResult.position !== null) {
+          if (positionAccepted) {
+            // Dwell met - update position
             this.handleMatch(matchResult);
           }
         } else {
@@ -160,11 +213,14 @@ export class ScrollSync {
         break;
 
       case ScrollState.OFF_SCRIPT:
-        if (effectiveLevel === 'high' && matchResult.position !== null) {
-          // Found position again
+        if (effectiveLevel === 'high') {
+          // Found position again - become confident (regardless of dwell)
           this.scrollState = ScrollState.CONFIDENT;
           this.uncertainStartTime = null;
-          this.handleMatch(matchResult);
+          if (positionAccepted) {
+            // Dwell met - update position
+            this.handleMatch(matchResult);
+          }
         }
         break;
     }
@@ -400,6 +456,7 @@ export class ScrollSync {
     if (params.patientThreshold !== undefined) this.patientThreshold = params.patientThreshold;
     if (params.maxSkip !== undefined) this.maxSkip = params.maxSkip;
     if (params.silenceThreshold !== undefined) this.silenceThreshold = params.silenceThreshold;
+    if (params.matchDwellTime !== undefined) this.matchDwellTime = params.matchDwellTime;
   }
 
   // Get state for debugging

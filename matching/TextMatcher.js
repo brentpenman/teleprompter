@@ -4,6 +4,8 @@ import { ConfidenceCalculator } from './ConfidenceLevel.js';
 
 export class TextMatcher {
   constructor(scriptText, options = {}) {
+    // Window size 3 - always match last 3 words regardless of transcript length
+    // Keeps matching tight and responsive
     this.windowSize = options.windowSize || 3;
     this.threshold = options.threshold || 0.3;  // Fuse.js: 0 = exact, 1 = match anything
     this.minConsecutiveMatches = options.minConsecutiveMatches || 2;
@@ -128,7 +130,8 @@ export class TextMatcher {
 
   // Match transcript and return confidence data
   // Returns object with position, confidence, level, and match metadata
-  getMatchWithConfidence(transcript) {
+  // Uses proximity-first search to find nearby matches before distant ones
+  getMatchWithConfidence(transcript, proximityWindow = 15) {
     const words = tokenize(transcript);
     const filtered = filterFillerWords(words);
 
@@ -139,48 +142,73 @@ export class TextMatcher {
     // Use the last windowSize words for matching
     const window = filtered.slice(-this.windowSize);
 
-    // Search forward from current position first
-    const result = this.searchRangeWithScore(this.currentPosition, this.scriptWords.length, window);
-    if (result) {
-      const matchEnd = result.startIndex + window.length - 1;
-      if (matchEnd >= this.currentPosition) {
-        this.currentPosition = matchEnd;
-        this.lastMatchTime = Date.now();
+    // Debug: show what we're searching for
+    console.log(`[Matcher] Searching for "${window.join(' ')}" from position ${this.currentPosition}`);
 
-        const msSinceLastMatch = 0; // Just matched now
-        const rawConfidence = this.confidenceCalculator.calculate(
-          result.avgScore, result.matchCount, window.length, msSinceLastMatch
-        );
+    // PROXIMITY-FIRST SEARCH: Check nearby positions before searching far away
+    // This prevents common words from matching at distant positions
 
-        return {
-          position: matchEnd,
-          confidence: rawConfidence,
-          level: this.confidenceCalculator.toLevel(rawConfidence),
-          matchCount: result.matchCount,
-          windowSize: window.length
-        };
+    // 1. First search a small window AROUND current position (both directions)
+    // This catches matches that span across currentPosition
+    const nearStart = Math.max(0, this.currentPosition - 5);
+    const nearEnd = Math.min(this.currentPosition + proximityWindow, this.scriptWords.length);
+    let result = this.searchRangeWithScore(nearStart, nearEnd, window);
+    if (result) console.log(`[Matcher] Found in near range [${nearStart}-${nearEnd}] at ${result.startIndex}`);
+
+    // 2. If not found, search wider backward vicinity
+    if (!result) {
+      const wideBackStart = Math.max(0, this.currentPosition - proximityWindow);
+      if (wideBackStart < nearStart) {
+        result = this.searchRangeWithScore(wideBackStart, nearStart, window);
+        if (result) console.log(`[Matcher] Found in wide-backward range [${wideBackStart}-${nearStart}] at ${result.startIndex}`);
       }
     }
 
-    // Search backward for intentional skip-back
-    const jumpThreshold = 10;
-    const backResult = this.searchRangeWithScore(0, Math.max(0, this.currentPosition - jumpThreshold), window);
-    if (backResult) {
-      const matchEnd = backResult.startIndex + window.length - 1;
+    // 3. If still not found, search the rest of the script (far forward)
+    if (!result) {
+      result = this.searchRangeWithScore(nearEnd, this.scriptWords.length, window);
+      if (result) console.log(`[Matcher] Found in far-forward range [${nearEnd}-${this.scriptWords.length}] at ${result.startIndex}`);
+    }
+
+    // 4. Finally, search far backward (beginning of script)
+    if (!result) {
+      const wideBackStart = Math.max(0, this.currentPosition - proximityWindow);
+      if (wideBackStart > 0) {
+        result = this.searchRangeWithScore(0, wideBackStart, window);
+        if (result) console.log(`[Matcher] Found in far-backward range [0-${wideBackStart}] at ${result.startIndex}`);
+      }
+    }
+
+    if (!result) {
+      // Debug: show what script words are near current position
+      const contextStart = Math.max(0, this.currentPosition - 3);
+      const contextEnd = Math.min(this.scriptWords.length, this.currentPosition + 10);
+      const context = this.scriptWords.slice(contextStart, contextEnd).map((w, i) =>
+        i === (this.currentPosition - contextStart) ? `[${w}]` : w
+      ).join(' ');
+      console.log(`[Matcher] No match found. Script near position ${this.currentPosition}: "${context}"`);
+    }
+
+    if (result) {
+      const matchEnd = result.startIndex + window.length - 1;
+      const distance = matchEnd - this.currentPosition;
+
       this.currentPosition = matchEnd;
       this.lastMatchTime = Date.now();
 
+      const msSinceLastMatch = 0; // Just matched now
       const rawConfidence = this.confidenceCalculator.calculate(
-        backResult.avgScore, backResult.matchCount, window.length, 0
+        result.avgScore, result.matchCount, window.length, msSinceLastMatch
       );
 
       return {
         position: matchEnd,
         confidence: rawConfidence,
         level: this.confidenceCalculator.toLevel(rawConfidence),
-        matchCount: backResult.matchCount,
+        matchCount: result.matchCount,
         windowSize: window.length,
-        isBackwardSkip: true
+        distance: distance,
+        isBackwardSkip: distance < 0
       };
     }
 
@@ -196,6 +224,7 @@ export class TextMatcher {
   }
 
   // Search range and return score data for confidence calculation
+  // Requires ALL words in the window to match at consecutive positions (phrase matching)
   searchRangeWithScore(start, end, window) {
     for (let i = start; i < end - window.length + 1; i++) {
       let matchCount = 0;
@@ -211,7 +240,8 @@ export class TextMatcher {
         }
       }
 
-      if (matchCount >= this.minConsecutiveMatches) {
+      // Require ALL words to match - true phrase matching, not random word coincidence
+      if (matchCount === window.length) {
         return {
           startIndex: i,
           matchCount: matchCount,
@@ -251,8 +281,8 @@ export class TextMatcher {
         }
       }
 
-      // Require minConsecutiveMatches out of window
-      if (matchCount >= this.minConsecutiveMatches) {
+      // Require ALL words to match - true phrase matching
+      if (matchCount === window.length) {
         return i;
       }
     }

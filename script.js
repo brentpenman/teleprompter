@@ -276,6 +276,10 @@ async function enableVoiceMode() {
   }
   audioVisualizer.start(audioStream);
 
+  // Track last final transcript to detect new words
+  let lastFinalLength = 0;
+  let stableWords = [];
+
   // Initialize and start speech recognizer
   if (!speechRecognizer) {
     speechRecognizer = new SpeechRecognizer({
@@ -283,8 +287,40 @@ async function enableVoiceMode() {
         console.log(`[Voice] ${isFinal ? 'FINAL' : 'interim'}: ${text}`);
 
         if (textMatcher && scrollSync) {
+          // Tokenize the current transcript
+          const words = text.toLowerCase().replace(/[.,!?;:'"()\[\]{}]/g, '').split(/\s+/).filter(w => w.length > 0);
+
+          if (isFinal) {
+            // FINAL: Update stable words with the complete final transcript
+            // Only add truly new words (beyond what we had before)
+            const newWords = words.slice(lastFinalLength);
+            stableWords.push(...newWords);
+            lastFinalLength = words.length;
+
+            // Keep buffer manageable
+            if (stableWords.length > 30) {
+              stableWords = stableWords.slice(-30);
+            }
+            console.log(`[Buffer] Added ${newWords.length} words: "${newWords.join(' ')}" | Buffer: "${stableWords.slice(-5).join(' ')}"`);
+          } else if (words.length < lastFinalLength) {
+            // Recognition restarted (interim is shorter than last final)
+            // Reset tracking but keep stable buffer
+            lastFinalLength = 0;
+            console.log(`[Buffer] Recognition restarted, keeping buffer: "${stableWords.slice(-5).join(' ')}"`);
+          }
+
+          // For matching: use stable buffer + any interim extension
+          // This gives us stability from finals + responsiveness from interims
+          const interimExtension = words.length > lastFinalLength ? words.slice(lastFinalLength) : words;
+          const combinedWords = [...stableWords, ...interimExtension];
+          const matchWords = combinedWords.slice(-3);
+
+          if (matchWords.length < 2) {
+            return; // Not enough words yet
+          }
+
           // Use confidence-aware matching
-          const result = textMatcher.getMatchWithConfidence(text);
+          const result = textMatcher.getMatchWithConfidence(matchWords.join(' '));
 
           // Update scroll state machine (may reject large skips)
           const { state: newState, positionAccepted } = scrollSync.updateConfidence(result);
@@ -300,7 +336,7 @@ async function enableVoiceMode() {
           }
 
           // Debug logging
-          console.log(`[Matching] Position: ${result.position}${positionAccepted ? '' : ' (rejected)'}, Confidence: ${result.level} (${(result.confidence * 100).toFixed(0)}%), State: ${newState}`);
+          console.log(`[Matching] Words: "${matchWords.join(' ')}", Position: ${result.position}${positionAccepted ? '' : ' (rejected)'}, Confidence: ${result.level} (${(result.confidence * 100).toFixed(0)}%), State: ${newState}`);
         }
       },
       onError: (errorType, isFatal) => {
@@ -413,6 +449,7 @@ function setupTuningControls() {
     'tune-decel-time': 'decelerationTimeConstant',
     'tune-patient': 'patientThreshold',
     'tune-max-skip': 'maxSkip',
+    'tune-dwell': 'matchDwellTime',
     'tune-silence': 'silenceThreshold'
   };
 

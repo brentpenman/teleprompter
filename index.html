@@ -74,23 +74,23 @@
             </div>
             <div class="tune-row">
                 <label>Behind Max ×</label>
-                <input type="number" id="tune-behind-max" value="0" min="0" max="3" step="0.1">
+                <input type="number" id="tune-behind-max" value="0.03" min="0" max="3" step="0.01">
             </div>
             <div class="tune-row">
                 <label>Behind Thresh</label>
-                <input type="number" id="tune-behind-thresh" value="200" min="10" max="500" step="10">
+                <input type="number" id="tune-behind-thresh" value="80" min="10" max="500" step="10">
             </div>
             <div class="tune-row">
                 <label>Ahead Thresh</label>
-                <input type="number" id="tune-ahead-thresh" value="100" min="0" max="200" step="10">
+                <input type="number" id="tune-ahead-thresh" value="10" min="0" max="200" step="10">
             </div>
             <div class="tune-row">
                 <label>Accel Time</label>
-                <input type="number" id="tune-accel-time" value="500" min="100" max="5000" step="100">
+                <input type="number" id="tune-accel-time" value="200" min="100" max="5000" step="100">
             </div>
             <div class="tune-row">
                 <label>Decel Time</label>
-                <input type="number" id="tune-decel-time" value="500" min="100" max="2000" step="100">
+                <input type="number" id="tune-decel-time" value="100" min="100" max="2000" step="100">
             </div>
             <div class="tune-row">
                 <label>Patient (s)</label>
@@ -98,7 +98,11 @@
             </div>
             <div class="tune-row">
                 <label>Max Skip</label>
-                <input type="number" id="tune-max-skip" value="10" min="5" max="200" step="5">
+                <input type="number" id="tune-max-skip" value="25" min="5" max="200" step="5">
+            </div>
+            <div class="tune-row">
+                <label>Dwell (ms)</label>
+                <input type="number" id="tune-dwell" value="150" min="0" max="1000" step="50">
             </div>
             <div class="tune-row">
                 <label>Silence (s)</label>
