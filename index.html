@@ -34,6 +34,10 @@
             <div id="teleprompter-text"></div>
         </div>
         <div class="reading-marker"></div>
+
+        <!-- Visual feedback elements for voice tracking -->
+        <div id="caret-line" class="caret-line"></div>
+        <div id="tracking-indicator" class="tracking-indicator stopped">Stopped</div>
         <div class="controls-overlay">
             <div class="controls-row">
                 <button id="exit-btn" class="control-btn">Exit</button>
@@ -107,6 +111,12 @@
             <div class="tune-row">
                 <label>Silence (s)</label>
                 <input type="number" id="tune-silence" value="0.5" min="0.1" max="10" step="0.1">
+            </div>
+            <hr style="margin: 8px 0; border-color: #333;">
+            <div class="caret-setting">
+                <label for="caret-slider">Caret Position</label>
+                <input type="range" id="caret-slider" min="10" max="90" value="33">
+                <span id="caret-value">33%</span>
             </div>
         </div>
     </div>
