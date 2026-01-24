@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 5 - WordMatcher (1 of 2 plans complete)
-Plan: 05-01 complete, 05-02 pending
-Status: In progress
-Last activity: 2026-01-24 - Completed 05-01-PLAN.md (WordMatcher core)
+Phase: 5 - WordMatcher (2 of 2 plans complete)
+Plan: 05-02 complete
+Status: Phase complete
+Last activity: 2026-01-24 - Completed 05-02-PLAN.md (edge cases, offsets, JSDoc)
 
-Progress: [██░░░░░░░░] 12.5% (1/8 plans complete for v1.1)
+Progress: [███░░░░░░░] 25% (2/8 plans complete for v1.1)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 1 |
-| Plans passed first try | 1 |
-| Verifications passed | 1 |
+| Plans executed | 2 |
+| Plans passed first try | 2 |
+| Verifications passed | 2 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -56,10 +56,6 @@ Progress: [██░░░░░░░░] 12.5% (1/8 plans complete for v1.1)
 - ScrollSync -> PositionTracker + ScrollController (split concerns)
 - Remove ConfidenceLevel.js (absorbed into PositionTracker)
 
-### Pending Todos
-
-- Execute 05-02-PLAN.md (edge cases, character offsets, JSDoc types)
-
 ### Blockers/Concerns
 
 None.
@@ -72,17 +68,24 @@ None.
 | Jest with ES modules (--experimental-vm-modules) | Standard test framework, works with ES modules |
 | distanceWeight default: 0.3 | 30% weight to position gives good balance |
 
+### Decisions from 05-02
+
+| Decision | Rationale |
+|----------|-----------|
+| Clamp currentPosition before calculating search bounds | Prevents searchStart/searchEnd from going negative or exceeding script length |
+| Track character offsets via linear scan in createMatcher | Simple O(n) approach that matches tokenization order; enables direct CSS Custom Highlight API usage |
+
 ## Session Continuity
 
-Last session: 2026-01-24 16:42 UTC
-Stopped at: Completed 05-01-PLAN.md
-Resume file: .planning/phases/05-wordmatcher/05-02-PLAN.md
+Last session: 2026-01-24 16:47 UTC
+Stopped at: Completed 05-02-PLAN.md
+Resume file: None
 
 ### Next Steps
 
-1. Execute 05-02-PLAN.md (edge cases, character offsets, JSDoc)
-2. Execute Phase 6 plans (PositionTracker)
-3. Continue through Phases 7-8
+1. Execute Phase 6 plans (PositionTracker)
+2. Continue through Phases 7-8
+3. v1.1 integration testing
 
 ---
-*Updated: 2026-01-24 after 05-01 completion*
+*Updated: 2026-01-24 after 05-02 completion*
