@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 8 - Integration (in progress)
-Plan: 1 of 1 complete
-Status: Plan 08-01 complete
-Last activity: 2026-01-24 - Completed 08-01-PLAN.md (Pipeline Wiring)
+Phase: 8 - Integration (COMPLETE)
+Plan: 2 of 2 complete
+Status: Phase 8 complete - v1.1 Following-Along Rewrite milestone COMPLETE
+Last activity: 2026-01-24 - Completed 08-02-PLAN.md (Debug Overlay + E2E Verification)
 
-Progress: [████████░░] 80% (Phase 8 plan 1 complete)
+Progress: [██████████] 100% (All v1.1 plans complete)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 9 |
-| Plans passed first try | 9 |
-| Verifications passed | 9 |
+| Plans executed | 10 |
+| Plans passed first try | 10 |
+| Verifications passed | 10 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -120,17 +120,35 @@ None.
 | Disabled v1.0 tuning controls | v1.1 uses different tuning model; will be re-implemented in future phase |
 | Debug mode off by default | Keeps console clean for normal use; developer toggles when needed |
 
+### Decisions from 08-02
+
+| Decision | Rationale |
+|----------|-----------|
+| Keyboard shortcut (Ctrl+Shift+D) for debug toggle | Keeps debug tools accessible to developers without cluttering main UI or settings |
+| Export state includes all pipeline components | Complete snapshot enables debugging complex pipeline interactions |
+| Caret slider updates ScrollController in real-time | Allows runtime tuning of caret position for experimentation |
+| Mark v1.0 tuning controls as deprecated (not removed) | Preserves UI structure while signaling obsolescence; can be removed in future cleanup |
+
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 08-01-PLAN.md
-Resume file: .planning/phases/08-integration/08-01-SUMMARY.md
+Stopped at: Completed 08-02-PLAN.md (Phase 8 COMPLETE)
+Resume file: .planning/phases/08-integration/08-02-SUMMARY.md
 
 ### Next Steps
 
-1. Check for additional Phase 8 plans (08-02, etc.)
-2. If no more plans, verify Phase 8 complete
-3. Complete v1.1 milestone
+**v1.1 Following-Along Rewrite milestone COMPLETE!**
+
+All 8 phases complete:
+- [x] Phase 5: WordMatcher - Stateless matching with distance weighting
+- [x] Phase 6: PositionTracker - Two-position model with skip detection
+- [x] Phase 7: ScrollController - Reactive scroll with pace tracking
+- [x] Phase 8: Integration - Pipeline wired, old components removed, E2E verified
+
+Ready for:
+- Production use of v1.1 system
+- Future enhancements (parameter tuning UI, advanced features)
+- Performance optimization if needed
 
 ---
-*Updated: 2026-01-24 after 08-01-PLAN.md completion*
+*Updated: 2026-01-24 after 08-02-PLAN.md completion - v1.1 milestone COMPLETE*

@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 MVP - Phases 1-4 (shipped 2026-01-24)
-- **v1.1 Following-Along Rewrite** - Phases 5-8 (in progress)
+- **v1.1 Following-Along Rewrite** - Phases 5-8 (shipped 2026-01-24)
 
 ## Phases
 
@@ -50,7 +50,7 @@ Plans:
 
 </details>
 
-### v1.1 Following-Along Rewrite (In Progress)
+### v1.1 Following-Along Rewrite (SHIPPED 2026-01-24)
 
 **Milestone Goal:** Completely rewrite position-tracking and scroll logic to follow the user naturally. The teleprompter should confirm where you ARE, not predict where you'll BE.
 
@@ -64,7 +64,7 @@ Plans:
 - [x] **Phase 5: WordMatcher** - Pure matching foundation with distance-weighted scoring
 - [x] **Phase 6: PositionTracker** - Confirmation logic with two-position model
 - [x] **Phase 7: ScrollController** - Reactive display with pace-derived scrolling
-- [ ] **Phase 8: Integration** - Wire pipeline, remove old components
+- [x] **Phase 8: Integration** - Wire pipeline, remove old components
 
 ## Phase Details
 
@@ -127,8 +127,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Delete old components, wire v1.1 pipeline in script.js
-- [ ] 08-02-PLAN.md — Debug overlay features, end-to-end verification
+- [x] 08-01-PLAN.md — Delete old components, wire v1.1 pipeline in script.js
+- [x] 08-02-PLAN.md — Debug overlay features, end-to-end verification
 
 ## Progress
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 5. WordMatcher | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 6. PositionTracker | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 7. ScrollController | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 8. Integration | v1.1 | 0/2 | Not started | - |
+| 8. Integration | v1.1 | 2/2 | Complete | 2026-01-24 |
 
 ---
 *Created: 2026-01-24 for v1.1 Following-Along Rewrite*
