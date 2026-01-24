@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 6 of 8 (PositionTracker)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-01-24 - Completed 06-01-PLAN.md (Core PositionTracker)
+Phase: 6 of 8 (PositionTracker) - COMPLETE
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-01-24 - Completed 06-02-PLAN.md (Skip Detection)
 
-Progress: [████░░░░░░] 38% (3/8 plans complete for v1.1)
+Progress: [█████░░░░░] 50% (4/8 plans complete for v1.1)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 3 |
-| Plans passed first try | 3 |
-| Verifications passed | 3 |
+| Plans executed | 4 |
+| Plans passed first try | 4 |
+| Verifications passed | 4 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -85,16 +85,27 @@ None.
 | Default confidenceThreshold: 0.7 | Matches v1.1 design principle of conservative forward movement |
 | Default nearbyThreshold: 10 | Reasonable default for Phase 1, skip detection uses this in 06-02 |
 
+### Decisions from 06-02
+
+| Decision | Rationale |
+|----------|-----------|
+| Small skip (10-50 words) requires 4 consecutive matches | Balances responsiveness with safety for moderate skips |
+| Large skip (50+ words) requires 5 consecutive matches | Extra confirmation for significant jumps prevents false positives |
+| Consecutive gap tolerance of 2 words | Allows for filler word filtering without breaking streaks |
+| Reset streak on nearby advance | Prevents false carry-over from previous skip exploration |
+| Distance calculated from confirmedPosition | Ensures skip detection is relative to stable floor position |
+
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 06-01-PLAN.md
-Resume file: .planning/phases/06-position-tracker/06-02-PLAN.md
+Stopped at: Completed Phase 6 (PositionTracker)
+Resume file: .planning/ROADMAP.md
 
 ### Next Steps
 
-1. Execute 06-02-PLAN.md (Skip Detection)
-2. Continue through Phases 7-8
+1. `/gsd:plan-phase 7` - Plan ScrollController phase
+2. Execute Phase 7 plans
+3. Continue through Phase 8
 
 ---
-*Updated: 2026-01-24 after 06-01 completion*
+*Updated: 2026-01-24 after Phase 6 completion*
