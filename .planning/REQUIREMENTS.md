@@ -77,32 +77,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MATCH-01 | TBD | Pending |
-| MATCH-02 | TBD | Pending |
-| MATCH-03 | TBD | Pending |
-| MATCH-04 | TBD | Pending |
-| POS-01 | TBD | Pending |
-| POS-02 | TBD | Pending |
-| POS-03 | TBD | Pending |
-| POS-04 | TBD | Pending |
-| SCROLL-01 | TBD | Pending |
-| SCROLL-02 | TBD | Pending |
-| SCROLL-03 | TBD | Pending |
-| SCROLL-04 | TBD | Pending |
-| SCROLL-05 | TBD | Pending |
-| SKIP-01 | TBD | Pending |
-| SKIP-02 | TBD | Pending |
-| ARCH-01 | TBD | Pending |
-| ARCH-02 | TBD | Pending |
-| ARCH-03 | TBD | Pending |
-| ARCH-04 | TBD | Pending |
-| VIS-01 | TBD | Pending |
+| MATCH-01 | Phase 5 | Pending |
+| MATCH-02 | Phase 5 | Pending |
+| MATCH-03 | Phase 5 | Pending |
+| MATCH-04 | Phase 5 | Pending |
+| POS-01 | Phase 6 | Pending |
+| POS-02 | Phase 6 | Pending |
+| POS-03 | Phase 6 | Pending |
+| POS-04 | Phase 6 | Pending |
+| SCROLL-01 | Phase 7 | Pending |
+| SCROLL-02 | Phase 7 | Pending |
+| SCROLL-03 | Phase 7 | Pending |
+| SCROLL-04 | Phase 7 | Pending |
+| SCROLL-05 | Phase 7 | Pending |
+| SKIP-01 | Phase 6 | Pending |
+| SKIP-02 | Phase 6 | Pending |
+| ARCH-01 | Phase 5 | Pending |
+| ARCH-02 | Phase 6 | Pending |
+| ARCH-03 | Phase 7 | Pending |
+| ARCH-04 | Phase 8 | Pending |
+| VIS-01 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20 (pending roadmap)
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-24*
-*Last updated: 2026-01-24 after initial definition*
+*Last updated: 2026-01-24 after roadmap creation*
