@@ -16,34 +16,34 @@ Requirements for the position-tracking rewrite. Each maps to roadmap phases.
 
 ### Position Tracking
 
-- [ ] **POS-01**: App maintains confirmed position as single source of truth (never speculative)
-- [ ] **POS-02**: App implements two-position model (confirmed floor + candidate ceiling)
-- [ ] **POS-03**: App only updates confirmed position on high-confidence matches
-- [ ] **POS-04**: Confirmed position only moves forward (monotonic constraint)
+- [x] **POS-01**: App maintains confirmed position as single source of truth (never speculative)
+- [x] **POS-02**: App implements two-position model (confirmed floor + candidate ceiling)
+- [x] **POS-03**: App only updates confirmed position on high-confidence matches
+- [x] **POS-04**: Confirmed position only moves forward (monotonic constraint)
 
 ### Scroll Behavior
 
-- [ ] **SCROLL-01**: App never scrolls ahead of confirmed position boundary
-- [ ] **SCROLL-02**: App keeps next words to speak at fixed cue position (near caret)
-- [ ] **SCROLL-03**: App pauses and holds position on silence
-- [ ] **SCROLL-04**: App resumes tracking automatically when speech detected (no manual restart)
-- [ ] **SCROLL-05**: App derives scroll speed from observed speaking pace (not a separate parameter)
+- [x] **SCROLL-01**: App never scrolls ahead of confirmed position boundary
+- [x] **SCROLL-02**: App keeps next words to speak at fixed cue position (near caret)
+- [x] **SCROLL-03**: App pauses and holds position on silence
+- [x] **SCROLL-04**: App resumes tracking automatically when speech detected (no manual restart)
+- [x] **SCROLL-05**: App derives scroll speed from observed speaking pace (not a separate parameter)
 
 ### Skip Detection
 
-- [ ] **SKIP-01**: App requires consecutive word matches at new position before accepting large jumps
-- [ ] **SKIP-02**: App has strong forward bias (backward jumps require much stronger evidence or manual action)
+- [x] **SKIP-01**: App requires consecutive word matches at new position before accepting large jumps
+- [x] **SKIP-02**: App has strong forward bias (backward jumps require much stronger evidence or manual action)
 
 ### Architecture
 
 - [x] **ARCH-01**: WordMatcher is stateless (pure function for matching)
-- [ ] **ARCH-02**: PositionTracker owns confirmed position as single source of truth
-- [ ] **ARCH-03**: ScrollController is purely reactive to PositionTracker events
+- [x] **ARCH-02**: PositionTracker owns confirmed position as single source of truth
+- [x] **ARCH-03**: ScrollController is purely reactive to PositionTracker events
 - [ ] **ARCH-04**: Old components removed (TextMatcher, ScrollSync, ConfidenceLevel)
 
 ### Visual Feedback
 
-- [ ] **VIS-01**: App shows visual indication of tracking state (tracking vs. holding)
+- [x] **VIS-01**: App shows visual indication of tracking state (tracking vs. holding)
 
 ## Future Requirements
 
@@ -81,22 +81,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MATCH-02 | Phase 5 | Complete |
 | MATCH-03 | Phase 5 | Complete |
 | MATCH-04 | Phase 5 | Complete |
-| POS-01 | Phase 6 | Pending |
-| POS-02 | Phase 6 | Pending |
-| POS-03 | Phase 6 | Pending |
-| POS-04 | Phase 6 | Pending |
-| SCROLL-01 | Phase 7 | Pending |
-| SCROLL-02 | Phase 7 | Pending |
-| SCROLL-03 | Phase 7 | Pending |
-| SCROLL-04 | Phase 7 | Pending |
-| SCROLL-05 | Phase 7 | Pending |
-| SKIP-01 | Phase 6 | Pending |
-| SKIP-02 | Phase 6 | Pending |
+| POS-01 | Phase 6 | Complete |
+| POS-02 | Phase 6 | Complete |
+| POS-03 | Phase 6 | Complete |
+| POS-04 | Phase 6 | Complete |
+| SCROLL-01 | Phase 7 | Complete |
+| SCROLL-02 | Phase 7 | Complete |
+| SCROLL-03 | Phase 7 | Complete |
+| SCROLL-04 | Phase 7 | Complete |
+| SCROLL-05 | Phase 7 | Complete |
+| SKIP-01 | Phase 6 | Complete |
+| SKIP-02 | Phase 6 | Complete |
 | ARCH-01 | Phase 5 | Complete |
-| ARCH-02 | Phase 6 | Pending |
-| ARCH-03 | Phase 7 | Pending |
+| ARCH-02 | Phase 6 | Complete |
+| ARCH-03 | Phase 7 | Complete |
 | ARCH-04 | Phase 8 | Pending |
-| VIS-01 | Phase 7 | Pending |
+| VIS-01 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 20 total

@@ -63,7 +63,7 @@ Plans:
 
 - [x] **Phase 5: WordMatcher** - Pure matching foundation with distance-weighted scoring
 - [x] **Phase 6: PositionTracker** - Confirmation logic with two-position model
-- [ ] **Phase 7: ScrollController** - Reactive display with pace-derived scrolling
+- [x] **Phase 7: ScrollController** - Reactive display with pace-derived scrolling
 - [ ] **Phase 8: Integration** - Wire pipeline, remove old components
 
 ## Phase Details
@@ -113,8 +113,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — TDD: Core ScrollController with pace-derived scrolling and exponential smoothing
-- [ ] 07-02-PLAN.md — Visual feedback: caret line, tracking indicator, settings slider
+- [x] 07-01-PLAN.md — TDD: Core ScrollController with pace-derived scrolling and exponential smoothing
+- [x] 07-02-PLAN.md — Visual feedback: caret line, tracking indicator, settings slider
 
 ### Phase 8: Integration
 **Goal**: Wire new components into pipeline, remove old components, verify clean architecture
@@ -142,7 +142,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 4. Scroll Control | v1.0 | 4/4 | Complete | 2026-01-24 |
 | 5. WordMatcher | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 6. PositionTracker | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 7. ScrollController | v1.1 | 0/2 | Not started | - |
+| 7. ScrollController | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 8. Integration | v1.1 | 0/TBD | Not started | - |
 
 ---
