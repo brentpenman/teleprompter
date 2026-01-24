@@ -72,16 +72,17 @@ Plans:
 **Goal**: Create a stateless matching component that scores candidates by both fuzzy match quality and positional proximity
 **Depends on**: Phase 4 (v1.0 complete)
 **Requirements**: MATCH-01, MATCH-02, MATCH-03, MATCH-04, ARCH-01
+**Plans**: 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — TDD: Core WordMatcher implementation with distance-weighted scoring
+- [ ] 05-02-PLAN.md — Edge cases, character offsets, and JSDoc types
+
 **Success Criteria** (what must be TRUE):
   1. User speaks "four score and seven" near script start - app finds match within 50-word radius of current position
   2. User speaks phrase that appears twice in script - app ranks the closer occurrence higher
   3. User speaks partial/paraphrased phrase - app finds fuzzy match with score reflecting both text similarity and distance
   4. User speaks 2+ consecutive matching words - app reports them as high-confidence candidates
-**Plans**: TBD
-
-Plans:
-- [ ] 05-01: TBD (planned during phase planning)
-- [ ] 05-02: TBD
 
 ### Phase 6: PositionTracker
 **Goal**: Maintain confirmed position as single source of truth using two-position model (floor + ceiling)
@@ -139,7 +140,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 2. Speech Recognition | v1.0 | 4/4 | Complete | 2026-01-22 |
 | 3. Text Matching | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 4. Scroll Control | v1.0 | 4/4 | Complete | 2026-01-24 |
-| 5. WordMatcher | v1.1 | 0/TBD | Not started | - |
+| 5. WordMatcher | v1.1 | 0/2 | Planned | - |
 | 6. PositionTracker | v1.1 | 0/TBD | Not started | - |
 | 7. ScrollController | v1.1 | 0/TBD | Not started | - |
 | 8. Integration | v1.1 | 0/TBD | Not started | - |
