@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 5 - WordMatcher
-Plan: Not started (awaiting plan-phase)
-Status: Roadmap complete, ready for phase planning
-Last activity: 2026-01-24 - Roadmap created for v1.1
+Phase: 5 - WordMatcher (1 of 2 plans complete)
+Plan: 05-01 complete, 05-02 pending
+Status: In progress
+Last activity: 2026-01-24 - Completed 05-01-PLAN.md (WordMatcher core)
 
-Progress: [░░░░░░░░░░] 0% (0/4 phases complete)
+Progress: [██░░░░░░░░] 12.5% (1/8 plans complete for v1.1)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 0 |
-| Plans passed first try | - |
-| Verifications passed | 0 |
+| Plans executed | 1 |
+| Plans passed first try | 1 |
+| Verifications passed | 1 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -58,23 +58,31 @@ Progress: [░░░░░░░░░░] 0% (0/4 phases complete)
 
 ### Pending Todos
 
-None - ready for phase planning.
+- Execute 05-02-PLAN.md (edge cases, character offsets, JSDoc types)
 
 ### Blockers/Concerns
 
-None yet.
+None.
+
+### Decisions from 05-01
+
+| Decision | Rationale |
+|----------|-----------|
+| Distance weighting formula: `matchQuality * (1 - distanceWeight * distancePenalty)` | Linear penalty is simple to understand and tune |
+| Jest with ES modules (--experimental-vm-modules) | Standard test framework, works with ES modules |
+| distanceWeight default: 0.3 | 30% weight to position gives good balance |
 
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: Roadmap created
-Resume file: .planning/ROADMAP.md
+Last session: 2026-01-24 16:42 UTC
+Stopped at: Completed 05-01-PLAN.md
+Resume file: .planning/phases/05-wordmatcher/05-02-PLAN.md
 
 ### Next Steps
 
-1. `/gsd:plan-phase 5` - Plan WordMatcher phase
-2. Execute Phase 5 plans
-3. Continue through Phases 6-8
+1. Execute 05-02-PLAN.md (edge cases, character offsets, JSDoc)
+2. Execute Phase 6 plans (PositionTracker)
+3. Continue through Phases 7-8
 
 ---
-*Updated: 2026-01-24 after roadmap creation*
+*Updated: 2026-01-24 after 05-01 completion*
