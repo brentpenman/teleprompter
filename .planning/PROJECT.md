@@ -14,6 +14,20 @@ The teleprompter follows YOU, not the other way around. It matches your natural 
 **Codebase:** 2,317 lines of JavaScript
 **Tech Stack:** Vanilla JS, Web Speech API, Fuse.js, CSS Custom Highlight API
 
+## Current Milestone: v1.1 Following-Along Rewrite
+
+**Goal:** Completely rewrite the position-tracking and scroll logic to follow the user naturally.
+
+**Target features:**
+- Rewritten position-tracking algorithm with strong positional bias
+- Scroll speed derived from speech pace (not a separate parameter)
+- Confirmed-position model: never scroll ahead of where user actually is
+- Skip detection with consecutive-word confirmation before jumping
+- Graceful handling of repeated phrases using positional context
+- Off-script behavior: hold position, scroll back if display got ahead
+
+**Core principle:** The next words to speak are always at the caret. Scroll is purely reactive to confirmed speech.
+
 ## Requirements
 
 ### Validated
@@ -36,7 +50,7 @@ The teleprompter follows YOU, not the other way around. It matches your natural 
 
 ### Active
 
-(None — define in next milestone)
+(Defined in REQUIREMENTS.md for this milestone)
 
 ### Out of Scope
 
@@ -48,17 +62,28 @@ The teleprompter follows YOU, not the other way around. It matches your natural 
 
 ## Context
 
-Shipped v1.0 with full voice-controlled teleprompter functionality. The app follows your speaking pace, pauses when you go off-script, and resumes when you return. Uses a three-state machine (CONFIDENT/UNCERTAIN/OFF_SCRIPT) with confidence-based transitions.
+Shipped v1.0 with full voice-controlled teleprompter functionality. However, real-world testing revealed the position-tracking logic is fundamentally flawed:
+- Too sensitive and not sensitive enough simultaneously
+- Scroll speed doesn't match speaking pace
+- No awareness of font size affecting scroll distance
+- Repeated phrases cause false jumps
+- Display can get ahead of where user actually is
 
-**Known areas for tuning:**
-- Scroll parameters may need adjustment per speaker/script
-- Dwell time and skip thresholds are tunable via debug panel
+The v1.1 milestone will rewrite the entire following-along system from first principles, keeping only the smooth scroll animation mechanics and visual highlighting.
+
+**Design principles for rewrite:**
+1. Next words to speak always at caret (fixed position)
+2. Scroll is reactive to confirmed speech, not predictive
+3. Strong positional bias — prefer nearby matches
+4. Conservative forward movement — never ahead of confirmed position
+5. Skip detection requires consecutive-word confirmation
 
 ## Constraints
 
 - **Cost**: No paid AI APIs — use free browser APIs only
 - **Platform**: Web app only (proof of concept)
 - **Complexity**: Keep it simple — no auth, no persistence, no backend
+- **Preserve**: Keep smooth scroll animation mechanics (they work well)
 
 ## Key Decisions
 
@@ -70,9 +95,10 @@ Shipped v1.0 with full voice-controlled teleprompter functionality. The app foll
 | Broadcast-style display | Industry standard for readability | Good |
 | Fuse.js for fuzzy matching | Handles paraphrasing, typos, variations | Good |
 | CSS Custom Highlight API | Zero-DOM manipulation, performant | Good |
-| State machine scroll control | Human-like behavior, predictable | Good |
-| 3-word phrase matching | Balances uniqueness vs responsiveness | Good |
-| Dwell time confirmation | Prevents false jumps from transient matches | Good |
+| State machine scroll control | Human-like behavior, predictable | ⚠️ Revisit — too complex, rewriting |
+| 3-word phrase matching | Balances uniqueness vs responsiveness | ⚠️ Revisit — needs positional context |
+| Dwell time confirmation | Prevents false jumps from transient matches | ⚠️ Revisit — rethinking approach |
+| Rewrite following logic | v1.0 approach fundamentally flawed | — Pending |
 
 ---
-*Last updated: 2026-01-24 after v1.0 milestone*
+*Last updated: 2026-01-24 after v1.1 milestone start*
