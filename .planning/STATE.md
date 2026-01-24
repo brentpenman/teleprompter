@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 6 - PositionTracker COMPLETE ✓
-Plan: All plans complete, verified
-Status: Ready for Phase 7
-Last activity: 2026-01-24 - Phase 6 verified (5/5 must-haves)
+Phase: 7 - ScrollController (1 of 3 plans complete)
+Plan: 07-01 complete
+Status: In progress
+Last activity: 2026-01-24 - Completed 07-01-PLAN.md (ScrollController Core)
 
-Progress: [█████░░░░░] 50% (2/4 phases complete for v1.1)
+Progress: [██████░░░░] 60% (5/8 plans complete for v1.1)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 4 |
-| Plans passed first try | 4 |
-| Verifications passed | 4 |
+| Plans executed | 5 |
+| Plans passed first try | 5 |
+| Verifications passed | 5 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -95,17 +95,26 @@ None.
 | Reset streak on nearby advance | Prevents false carry-over from previous skip exploration |
 | Distance calculated from confirmedPosition | Ensures skip detection is relative to stable floor position |
 
+### Decisions from 07-01
+
+| Decision | Rationale |
+|----------|-----------|
+| lastPositionTime uses -1 as sentinel | Allows timestamp 0 to be valid (first call establishes baseline) |
+| Frame-rate tolerance of 10% | Floating point and frame timing cause small differences |
+| Skip threshold of 10 words | Matches PositionTracker nearbyThreshold default |
+| EMA 70/30 weighting for pace | Balances responsiveness with smoothness |
+
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 6 complete and verified
-Resume file: .planning/ROADMAP.md
+Stopped at: Completed 07-01-PLAN.md
+Resume file: .planning/phases/07-scrollcontroller/07-02-PLAN.md
 
 ### Next Steps
 
-1. `/gsd:plan-phase 7` - Plan ScrollController phase
-2. Execute Phase 7 plans
-3. Continue through Phase 8
+1. Execute Phase 7 Plan 2 (Visual Feedback)
+2. Execute Phase 7 Plan 3 (Settings)
+3. Continue to Phase 8 (Integration)
 
 ---
-*Updated: 2026-01-24 after Phase 6 verification*
+*Updated: 2026-01-24 after 07-01 completion*
