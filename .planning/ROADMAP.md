@@ -124,10 +124,11 @@ Plans:
   1. Old components removed (TextMatcher.js, ScrollSync.js, ConfidenceLevel.js no longer exist)
   2. New pipeline wired: SpeechRecognizer -> WordMatcher -> PositionTracker -> ScrollController
   3. User can read entire script naturally with new system (end-to-end verification)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD (planned during phase planning)
+- [ ] 08-01-PLAN.md — Delete old components, wire v1.1 pipeline in script.js
+- [ ] 08-02-PLAN.md — Debug overlay features, end-to-end verification
 
 ## Progress
 
@@ -143,7 +144,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 5. WordMatcher | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 6. PositionTracker | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 7. ScrollController | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 8. Integration | v1.1 | 0/TBD | Not started | - |
+| 8. Integration | v1.1 | 0/2 | Not started | - |
 
 ---
 *Created: 2026-01-24 for v1.1 Following-Along Rewrite*
