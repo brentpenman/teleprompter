@@ -134,4 +134,77 @@ describe('WordMatcher', () => {
       expect(result1.candidates.length).toBe(result2.candidates.length);
     });
   });
+
+  describe('edge cases', () => {
+    // Edge case 1: Empty transcript
+    it('returns empty result for empty transcript', () => {
+      const script = 'four score and seven years ago';
+      const matcher = createMatcher(script);
+
+      const result = findMatches('', matcher, 0);
+
+      expect(result.candidates).toEqual([]);
+      expect(result.bestMatch).toBeNull();
+    });
+
+    // Edge case 2: Transcript with only filler words
+    it('returns empty result for filler-only transcript', () => {
+      const script = 'four score and seven years ago';
+      const matcher = createMatcher(script);
+
+      // "um", "uh", "like" are common filler words filtered by textUtils
+      const result = findMatches('um uh like', matcher, 0);
+
+      expect(result.candidates).toEqual([]);
+      expect(result.bestMatch).toBeNull();
+    });
+
+    // Edge case 3: Script shorter than windowSize
+    it('handles script shorter than windowSize', () => {
+      const script = 'hello world'; // Only 2 words
+      const matcher = createMatcher(script);
+
+      // Should still work with windowSize default of 3
+      const result = findMatches('hello world', matcher, 0, { windowSize: 3 });
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(1); // "world" is at index 1
+    });
+
+    // Edge case 4: currentPosition at script end
+    it('searches backward when currentPosition at script end', () => {
+      const script = 'four score and seven years ago';
+      const matcher = createMatcher(script);
+
+      // currentPosition at end (index 5 = "ago"), should still find "score and"
+      const result = findMatches('score and', matcher, 5, { radius: 10 });
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(2); // "and" is at index 2
+    });
+
+    // Edge case 5: Negative currentPosition
+    it('clamps negative currentPosition to 0', () => {
+      const script = 'four score and seven years ago';
+      const matcher = createMatcher(script);
+
+      // Negative currentPosition should be treated as 0
+      const result = findMatches('four score', matcher, -10, { radius: 10 });
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(1); // "score" is at index 1
+    });
+
+    // Edge case 6: currentPosition beyond script length
+    it('clamps currentPosition beyond script length', () => {
+      const script = 'four score and seven years ago';
+      const matcher = createMatcher(script);
+
+      // Position 100 is way beyond script length of 6
+      const result = findMatches('years ago', matcher, 100, { radius: 100 });
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(5); // "ago" is at index 5
+    });
+  });
 });

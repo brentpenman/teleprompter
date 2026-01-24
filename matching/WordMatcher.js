@@ -77,9 +77,12 @@ export function findMatches(transcript, matcher, currentPosition, options = {}) 
   // Use last windowSize words (or all if fewer)
   const window = filtered.slice(-windowSize);
 
-  // Calculate search bounds
-  const searchStart = Math.max(0, currentPosition - radius);
-  const searchEnd = Math.min(scriptIndex.length, currentPosition + radius);
+  // Clamp currentPosition to valid range
+  const clampedPosition = Math.max(0, Math.min(scriptIndex.length - 1, currentPosition));
+
+  // Calculate search bounds (already clamped by Math.max/min)
+  const searchStart = Math.max(0, clampedPosition - radius);
+  const searchEnd = Math.min(scriptIndex.length, clampedPosition + radius);
 
   // Find consecutive matches within search bounds
   const candidates = [];
@@ -108,8 +111,8 @@ export function findMatches(transcript, matcher, currentPosition, options = {}) 
       const avgFuseScore = totalScore / matchCount;
 
       // Calculate combined score with distance penalty
-      // distancePenalty: 0 at currentPosition, 1 at edge of radius
-      const distance = Math.abs(endPosition - currentPosition);
+      // distancePenalty: 0 at clampedPosition, 1 at edge of radius
+      const distance = Math.abs(endPosition - clampedPosition);
       const distancePenalty = Math.min(1, distance / radius);
 
       // matchQuality: 1 = perfect match, 0 = worst match (invert Fuse score)
