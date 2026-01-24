@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 5 - WordMatcher COMPLETE ✓
-Plan: All plans complete, verified
-Status: Ready for Phase 6
-Last activity: 2026-01-24 - Phase 5 verified (10/10 must-haves)
+Phase: 6 of 8 (PositionTracker)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-01-24 - Completed 06-01-PLAN.md (Core PositionTracker)
 
-Progress: [███░░░░░░░] 25% (1/4 phases complete for v1.1)
+Progress: [████░░░░░░] 38% (3/8 plans complete for v1.1)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 2 |
-| Plans passed first try | 2 |
-| Verifications passed | 2 |
+| Plans executed | 3 |
+| Plans passed first try | 3 |
+| Verifications passed | 3 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -75,17 +75,26 @@ None.
 | Clamp currentPosition before calculating search bounds | Prevents searchStart/searchEnd from going negative or exceeding script length |
 | Track character offsets via linear scan in createMatcher | Simple O(n) approach that matches tokenization order; enables direct CSS Custom Highlight API usage |
 
+### Decisions from 06-01
+
+| Decision | Rationale |
+|----------|-----------|
+| Position 0 match from initial state is hold | Must be strictly forward to advance (>0 not >=0) |
+| Same position match is hold | No lateral movement, only forward advancement |
+| Null/undefined candidates return hold | Graceful handling prevents crashes |
+| Default confidenceThreshold: 0.7 | Matches v1.1 design principle of conservative forward movement |
+| Default nearbyThreshold: 10 | Reasonable default for Phase 1, skip detection uses this in 06-02 |
+
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Phase 5 complete and verified
-Resume file: .planning/ROADMAP.md
+Stopped at: Completed 06-01-PLAN.md
+Resume file: .planning/phases/06-position-tracker/06-02-PLAN.md
 
 ### Next Steps
 
-1. `/gsd:plan-phase 6` - Plan PositionTracker phase
-2. Execute Phase 6 plans
-3. Continue through Phases 7-8
+1. Execute 06-02-PLAN.md (Skip Detection)
+2. Continue through Phases 7-8
 
 ---
-*Updated: 2026-01-24 after Phase 5 verification*
+*Updated: 2026-01-24 after 06-01 completion*
