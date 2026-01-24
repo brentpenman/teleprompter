@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 
 ## Current Position
 
-Phase: 7 - ScrollController (1 of 3 plans complete)
-Plan: 07-01 complete
+Phase: 7 - ScrollController (2 of 3 plans complete)
+Plan: 07-02 complete
 Status: In progress
-Last activity: 2026-01-24 - Completed 07-01-PLAN.md (ScrollController Core)
+Last activity: 2026-01-24 - Completed 07-02-PLAN.md (Visual Feedback Elements)
 
-Progress: [██████░░░░] 60% (5/8 plans complete for v1.1)
+Progress: [███████░░░] 67% (6/9 plans complete for v1.1)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans executed | 5 |
-| Plans passed first try | 5 |
-| Verifications passed | 5 |
+| Plans executed | 6 |
+| Plans passed first try | 6 |
+| Verifications passed | 6 |
 | Blockers hit | 0 |
 
 ## Accumulated Context
@@ -104,17 +104,24 @@ None.
 | Skip threshold of 10 words | Matches PositionTracker nearbyThreshold default |
 | EMA 70/30 weighting for pace | Balances responsiveness with smoothness |
 
+### Decisions from 07-02
+
+| Decision | Rationale |
+|----------|-----------|
+| Caret slider in debug overlay | Keeps main UI clean; wiring happens in Phase 8 |
+| Default 33% caret position | Matches existing reading-marker position |
+| Three tracking states | Covers all ScrollController states from 07-01 |
+
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 07-01-PLAN.md
-Resume file: .planning/phases/07-scrollcontroller/07-02-PLAN.md
+Stopped at: Completed 07-02-PLAN.md
+Resume file: .planning/phases/07-scrollcontroller/07-03-PLAN.md
 
 ### Next Steps
 
-1. Execute Phase 7 Plan 2 (Visual Feedback)
-2. Execute Phase 7 Plan 3 (Settings)
-3. Continue to Phase 8 (Integration)
+1. Execute Phase 7 Plan 3 (Settings & Persistence)
+2. Continue to Phase 8 (Integration)
 
 ---
-*Updated: 2026-01-24 after 07-01 completion*
+*Updated: 2026-01-24 after 07-02 completion*
