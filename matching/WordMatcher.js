@@ -8,19 +8,70 @@
  * - Stateless: no internal state, same inputs always produce same outputs
  * - Position-aware: nearby matches rank higher than distant matches
  * - Consecutive matching: requires multiple words to match in sequence
+ *
+ * @module WordMatcher
  */
 
 import Fuse from 'fuse.js';
 import { tokenize, filterFillerWords } from './textUtils.js';
 
 /**
- * Build script index and Fuse instance for matching.
- * Call once when script text changes.
+ * @typedef {Object} WordEntry
+ * @property {string} word - Normalized word (lowercase)
+ * @property {number} index - Position in script (0-indexed)
+ * @property {number} startOffset - Character offset start in original text
+ * @property {number} endOffset - Character offset end in original text
+ */
+
+/**
+ * @typedef {Object} Matcher
+ * @property {WordEntry[]} scriptIndex - Indexed script words with offsets
+ * @property {import('fuse.js').default} fuse - Fuse.js instance for fuzzy search
+ * @property {string[]} scriptWords - Array of normalized words
+ */
+
+/**
+ * @typedef {Object} MatchCandidate
+ * @property {number} position - End word index of match (0-indexed)
+ * @property {number} startPosition - Start word index of match (0-indexed)
+ * @property {number} matchCount - Number of words matched
+ * @property {number} avgFuseScore - Average Fuse.js score (0=perfect, 1=mismatch)
+ * @property {number} distance - Word distance from currentPosition
+ * @property {number} combinedScore - Final score (higher=better, 0-1 range)
+ * @property {number} startOffset - Character offset for highlighting start
+ * @property {number} endOffset - Character offset for highlighting end
+ */
+
+/**
+ * @typedef {Object} MatchResult
+ * @property {MatchCandidate[]} candidates - All candidates sorted by score (highest first)
+ * @property {MatchCandidate|null} bestMatch - Highest scoring candidate, or null if none
+ */
+
+/**
+ * @typedef {Object} MatchOptions
+ * @property {number} [radius=50] - Search radius around currentPosition (in words)
+ * @property {number} [minConsecutive=2] - Minimum consecutive words required for match
+ * @property {number} [windowSize=3] - Words to take from transcript end for matching
+ * @property {number} [distanceWeight=0.3] - How much distance affects score (0-1)
+ * @property {number} [threshold=0.3] - Fuse.js fuzzy threshold (0=exact, 1=loose)
+ */
+
+/**
+ * Build matcher from script text (call once when script changes).
  *
- * @param {string} scriptText - The full script text to index
- * @param {Object} options - Configuration options
- * @param {number} options.threshold - Fuse.js threshold (0-1, lower is stricter)
- * @returns {Object} Matcher object with scriptIndex, fuse, and scriptWords
+ * Creates a Fuse.js index for fuzzy matching and tracks character offsets
+ * for each word to enable CSS Custom Highlight API integration.
+ *
+ * @param {string} scriptText - Full script text to index
+ * @param {{ threshold?: number }} [options] - Configuration
+ * @param {number} [options.threshold=0.3] - Fuse.js fuzzy threshold (0=exact, 1=loose)
+ * @returns {Matcher} Matcher object for use with findMatches
+ *
+ * @example
+ * const matcher = createMatcher('four score and seven years ago');
+ * // matcher.scriptIndex contains word positions and character offsets
+ * // matcher.fuse is the Fuse.js instance for fuzzy search
  */
 export function createMatcher(scriptText, options = {}) {
   const { threshold = 0.3 } = options;
@@ -62,19 +113,23 @@ export function createMatcher(scriptText, options = {}) {
 }
 
 /**
- * Find matches for spoken transcript within radius of current position.
- * Pure function - no side effects, no state.
+ * Find matches for spoken transcript (pure function).
  *
- * @param {string} transcript - Raw spoken words from speech recognition
- * @param {Object} matcher - Result from createMatcher
- * @param {number} currentPosition - Current word position in script
- * @param {Object} options - Search configuration
- * @param {number} options.radius - Search radius around currentPosition (default: 50)
- * @param {number} options.minConsecutive - Minimum consecutive matches required (default: 2)
- * @param {number} options.windowSize - Words to use from transcript (default: 3)
- * @param {number} options.distanceWeight - How much distance affects score 0-1 (default: 0.3)
- * @param {number} options.threshold - Fuse.js threshold for matching (default: 0.3)
- * @returns {Object} Result with candidates array and bestMatch (or null)
+ * Searches within radius of currentPosition for consecutive word matches.
+ * Scores candidates by both fuzzy match quality and positional proximity.
+ * Returns all candidates sorted by score and the best match.
+ *
+ * @param {string} transcript - Spoken words from speech recognition
+ * @param {Matcher} matcher - Result from createMatcher
+ * @param {number} currentPosition - Current word position in script (clamped to valid range)
+ * @param {MatchOptions} [options] - Search configuration
+ * @returns {MatchResult} Result with candidates array and bestMatch
+ *
+ * @example
+ * const matcher = createMatcher('four score and seven years ago');
+ * const result = findMatches('score and seven', matcher, 0);
+ * // result.bestMatch.position = 3 (index of "seven")
+ * // result.bestMatch.startOffset/endOffset for highlighting
  */
 export function findMatches(transcript, matcher, currentPosition, options = {}) {
   const {
