@@ -26,7 +26,29 @@ export function createMatcher(scriptText, options = {}) {
   const { threshold = 0.3 } = options;
 
   const scriptWords = tokenize(scriptText);
-  const scriptIndex = scriptWords.map((word, index) => ({ word, index }));
+
+  // Track character offsets for highlighting integration
+  // Find each word's position in the original text
+  const scriptLower = scriptText.toLowerCase();
+  let charOffset = 0;
+  const scriptIndex = [];
+
+  for (let i = 0; i < scriptWords.length; i++) {
+    const word = scriptWords[i];
+    // Find word in original text starting from current offset
+    const foundIndex = scriptLower.indexOf(word, charOffset);
+    const startOffset = foundIndex >= 0 ? foundIndex : charOffset;
+    const endOffset = startOffset + word.length;
+
+    scriptIndex.push({
+      word,
+      index: i,
+      startOffset,
+      endOffset
+    });
+
+    charOffset = endOffset;
+  }
 
   const fuse = new Fuse(scriptIndex, {
     keys: ['word'],
@@ -129,7 +151,10 @@ export function findMatches(transcript, matcher, currentPosition, options = {}) 
         matchCount,
         avgFuseScore,
         distance,
-        combinedScore
+        combinedScore,
+        // Character offsets for highlighting integration
+        startOffset: scriptIndex[pos].startOffset,
+        endOffset: scriptIndex[endPosition].endOffset
       });
     }
   }
