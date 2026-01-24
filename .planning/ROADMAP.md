@@ -110,11 +110,11 @@ Plans:
   3. User pauses for 5+ seconds - scroll holds position, next words remain at caret
   4. User resumes speaking after pause - tracking continues automatically (no manual restart)
   5. UI shows clear visual indication of tracking state (tracking vs. holding)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD (planned during phase planning)
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md — TDD: Core ScrollController with pace-derived scrolling and exponential smoothing
+- [ ] 07-02-PLAN.md — Visual feedback: caret line, tracking indicator, settings slider
 
 ### Phase 8: Integration
 **Goal**: Wire new components into pipeline, remove old components, verify clean architecture
@@ -142,7 +142,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 4. Scroll Control | v1.0 | 4/4 | Complete | 2026-01-24 |
 | 5. WordMatcher | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 6. PositionTracker | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 7. ScrollController | v1.1 | 0/TBD | Not started | - |
+| 7. ScrollController | v1.1 | 0/2 | Not started | - |
 | 8. Integration | v1.1 | 0/TBD | Not started | - |
 
 ---
