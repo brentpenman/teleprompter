@@ -1,3 +1,3 @@
 # Project
 
-<video src="project-summary.mp4" controls width="100%"></video>
+https://github.com/brentpenman/teleprompter/raw/main/project-summary.mp4
