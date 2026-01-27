@@ -148,6 +148,7 @@ function startScrolling() {
   lastTimestamp = null;
   animationId = requestAnimationFrame(scrollLoop);
   updatePlayPauseButton();
+  voiceToggle.disabled = true;
 }
 
 function stopScrolling() {
@@ -157,6 +158,10 @@ function stopScrolling() {
     animationId = null;
   }
   updatePlayPauseButton();
+  // Re-enable voice toggle only if speech recognition is supported
+  if (SpeechRecognizer.isSupported()) {
+    voiceToggle.disabled = false;
+  }
 }
 
 function toggleScrolling() {
@@ -437,6 +442,7 @@ async function enableVoiceMode() {
   state.voiceEnabled = true;
   voiceToggle.classList.add('active');
   listeningIndicator.classList.remove('hidden');
+  playPauseBtn.disabled = true;
 
   // Start debug updates if debug mode is enabled (keyboard shortcut controls visibility)
   if (debugMode) {
@@ -468,6 +474,7 @@ function disableVoiceMode() {
   state.voiceState = 'idle';
   voiceToggle.classList.remove('active');
   listeningIndicator.classList.add('hidden');
+  playPauseBtn.disabled = false;
 
   // Stop debug updates (keyboard shortcut controls visibility)
   stopDebugUpdates();
@@ -924,6 +931,19 @@ document.addEventListener('DOMContentLoaded', () => {
       caretLine.classList.toggle('visible', e.target.checked);
     }
   });
+
+  // Prevent manual scrolling when play mode or voice mode is active
+  teleprompterContainer.addEventListener('wheel', (e) => {
+    if (state.isScrolling || state.voiceEnabled) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  teleprompterContainer.addEventListener('touchmove', (e) => {
+    if (state.isScrolling || state.voiceEnabled) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 });
 
 // Fullscreen change listener
@@ -965,7 +985,10 @@ document.addEventListener('keydown', (e) => {
   switch (e.code) {
     case 'Space':
       e.preventDefault(); // Prevent page scroll
-      toggleScrolling();
+      // Don't toggle play mode when voice mode is active
+      if (!state.voiceEnabled) {
+        toggleScrolling();
+      }
       showControls();
       break;
     case 'ArrowUp':
