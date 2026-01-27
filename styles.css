@@ -219,7 +219,7 @@ body {
 }
 
 /* Fullscreen cursor behavior */
-.teleprompter-view.fullscreen-active {
+#teleprompter-view.fullscreen-active {
     cursor: none;
 }
 
@@ -282,10 +282,6 @@ body {
     transition: color 0.2s ease;
 }
 
-/* When highlighting is disabled, ensure full brightness */
-.no-highlight #teleprompter-text {
-    color: #f0f0f0 !important;
-}
 
 /* Debug overlay for scroll stats */
 #debug-overlay {

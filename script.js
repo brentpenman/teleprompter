@@ -560,9 +560,6 @@ function updateDebugOverlay() {
       Math.round(teleprompterContainer.scrollTop);
   }
 
-  // Target speed - use 0 or remove (v1.1 doesn't have this concept)
-  const targetEl = document.getElementById('debug-target-speed');
-  if (targetEl) targetEl.textContent = '-';
 }
 
 // Export debug state to clipboard
