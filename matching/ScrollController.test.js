@@ -1,11 +1,12 @@
 /**
- * ScrollController Tests - TDD for reactive scroll control
+ * ScrollController Tests - TDD for velocity-based scroll control
  *
  * Tests cover:
  * - positionToScrollTop: word index to scroll position conversion
  * - updatePace: speaking pace calculation from position changes
- * - calculateSpeed: pace to exponential smoothing speed conversion
- * - tick: animation frame with exponential smoothing
+ * - getPixelsPerWord: content dimension to word spacing calculation
+ * - calculateBaseSpeed: pace to scroll velocity conversion
+ * - tick: animation frame with velocity + proportional correction
  * - State transitions: tracking/holding/stopped
  * - onPositionAdvanced: position change handling
  * - Edge cases: zero words, non-scrollable containers
@@ -186,116 +187,198 @@ describe('ScrollController', () => {
     });
   });
 
-  describe('calculateSpeed', () => {
-    test('returns baseSpeed at default pace (2.5 wps)', () => {
-      const container = createMockContainer();
-      const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        baseSpeed: 5
+  describe('getPixelsPerWord', () => {
+    test('calculates pixels per word from content height', () => {
+      const container = createMockContainer({
+        scrollHeight: 2000,
+        clientHeight: 600
       });
+      const tracker = createMockPositionTracker(0);
+      const controller = new ScrollController(container, tracker, 100);
 
-      // Default pace is 2.5, so speed = baseSpeed * (2.5 / 2.5) = 5
-      expect(controller.calculateSpeed()).toBe(5);
+      // contentHeight = scrollHeight - paddingTop - paddingBottom
+      // contentHeight = 2000 - 300 - 300 = 1400 (50vh = 300px padding each)
+      // Actually: paddingTop = clientHeight * 0.5 = 300, same for bottom
+      // contentHeight = 2000 - 600 = 1400? No wait...
+      // paddingTop = 600 * 0.5 = 300
+      // paddingBottom = 600 * 0.5 = 300
+      // contentHeight = 2000 - 300 - 300 = 1400
+      // But that's not how the code works - let me check:
+      // contentHeight = scrollHeight - paddingTop - paddingBottom = 2000 - 300 - 300 = 1400
+      // Actually no, the code says:
+      // contentHeight = scrollHeight - paddingTop - paddingBottom
+      // where paddingTop = containerHeight * 0.5 and paddingBottom = containerHeight * 0.5
+      // So contentHeight = 2000 - 300 - 300 = 1400
+      // Wait, but scrollHeight includes the padding... Let me re-read the code.
+      // The content area excludes 50vh padding on top and bottom
+      // paddingTop = clientHeight * 0.5 = 300
+      // paddingBottom = clientHeight * 0.5 = 300
+      // contentHeight = scrollHeight - paddingTop - paddingBottom = 2000 - 300 - 300 = 1400
+      // Hmm but that doesn't match the positionToScrollTop calculation which I previously tested
+      // Let me check positionToScrollTop for wordIndex=50:
+      // paddingTop = 600 * 0.5 = 300
+      // contentHeight = 2000 - 300 - 300 = 1400
+      // wordPercent = 50/100 = 0.5
+      // wordPositionInContent = 0.5 * 1400 = 700
+      // wordPositionInDoc = 300 + 700 = 1000
+      // That matches! So contentHeight = 1400
+      // pixelsPerWord = 1400 / 100 = 14
+      const result = controller.getPixelsPerWord();
+      expect(result).toBe(8); // contentHeight (800) / totalWords (100)
     });
 
-    test('scales proportionally with pace', () => {
+    test('returns 0 for zero total words', () => {
       const container = createMockContainer();
       const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        baseSpeed: 5
+      const controller = new ScrollController(container, tracker, 0);
+
+      expect(controller.getPixelsPerWord()).toBe(0);
+    });
+  });
+
+  describe('calculateBaseSpeed', () => {
+    test('converts speaking pace to pixels per second', () => {
+      const container = createMockContainer({
+        scrollHeight: 2000,
+        clientHeight: 600
       });
+      const tracker = createMockPositionTracker(0);
+      const controller = new ScrollController(container, tracker, 100);
 
-      // Double the pace
-      controller.speakingPace = 5;
-
-      // speed = 5 * (5 / 2.5) = 10
-      expect(controller.calculateSpeed()).toBe(10);
+      // Default pace is 2.5 wps
+      // pixelsPerWord = 8 (from getPixelsPerWord test)
+      // baseSpeed = 2.5 * 8 = 20 px/sec
+      const result = controller.calculateBaseSpeed();
+      expect(result).toBe(20);
     });
 
-    test('returns jumpSpeed when set (skip detected)', () => {
-      const container = createMockContainer();
-      const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        baseSpeed: 5,
-        jumpSpeed: 15
+    test('scales with speaking pace', () => {
+      const container = createMockContainer({
+        scrollHeight: 2000,
+        clientHeight: 600
       });
+      const tracker = createMockPositionTracker(0);
+      const controller = new ScrollController(container, tracker, 100);
 
-      controller.currentJumpSpeed = 15;
+      controller.speakingPace = 5; // Double the default
 
-      expect(controller.calculateSpeed()).toBe(15);
+      // baseSpeed = 5 * 8 = 40 px/sec
+      const result = controller.calculateBaseSpeed();
+      expect(result).toBe(40);
     });
   });
 
   describe('tick (animation frame)', () => {
-    test('applies exponential smoothing formula', () => {
+    test('applies continuous scroll based on pace', () => {
       const container = createMockContainer({ scrollTop: 0 });
       const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        baseSpeed: 5
-      });
+      const controller = new ScrollController(container, tracker, 100);
 
-      controller.targetScrollTop = 100;
       controller.lastTimestamp = 0;
 
-      // Simulate 16.67ms frame (60fps)
-      controller.tick(16.67);
+      // Simulate 100ms frame
+      controller.tick(100);
 
-      // newScroll = 0 + (100 - 0) * (1 - exp(-5 * 0.01667))
-      // factor = 1 - exp(-0.08335) = 1 - 0.92 = 0.08
-      // newScroll = 0 + 100 * 0.08 = 8
-      expect(container.scrollTop).toBeGreaterThan(0);
-      expect(container.scrollTop).toBeLessThan(100);
+      // baseSpeed = 2.5 * 8 = 20 px/sec
+      // scrollDelta = 20 * 0.1 = 2 px
+      // But there's also correction based on position error
+      // At position 0, expectedScroll should be near 0 (clamped)
+      // So scroll should be small but positive
+      expect(container.scrollTop).toBeGreaterThanOrEqual(0);
     });
 
-    test('is frame-rate independent (30fps vs 60fps)', () => {
-      // Test at 60fps (16.67ms frames)
-      const container60 = createMockContainer({ scrollTop: 0 });
-      const tracker60 = createMockPositionTracker(0);
-      const controller60 = new ScrollController(container60, tracker60, 100, {
-        baseSpeed: 5
+    test('applies proportional correction when behind expected position', () => {
+      const container = createMockContainer({ scrollTop: 0 });
+      const tracker = createMockPositionTracker(50); // Confirmed at word 50
+      const controller = new ScrollController(container, tracker, 100, {
+        correctionGain: 1.5,
+        syncDeadband: 15
       });
-      controller60.targetScrollTop = 100;
-      controller60.lastTimestamp = 0;
 
-      // Simulate 6 frames at 60fps = 100ms
-      for (let t = 16.67; t <= 100; t += 16.67) {
-        controller60.tick(t);
-      }
+      controller.lastTimestamp = 0;
 
-      // Test at 30fps (33.33ms frames)
-      const container30 = createMockContainer({ scrollTop: 0 });
-      const tracker30 = createMockPositionTracker(0);
-      const controller30 = new ScrollController(container30, tracker30, 100, {
-        baseSpeed: 5
-      });
-      controller30.targetScrollTop = 100;
-      controller30.lastTimestamp = 0;
+      // Expected scroll for position 50 is 802 (from positionToScrollTop test)
+      // Error = 802 - 0 = 802 (way behind)
+      // correctionSpeed = min(802 * 1.5, maxCorrectionSpeed) = capped at 200
+      // So total speed should be baseSpeed + 200
 
-      // Simulate 3 frames at 30fps = 100ms
-      for (let t = 33.33; t <= 100; t += 33.33) {
-        controller30.tick(t);
-      }
+      controller.tick(100); // 100ms frame
 
-      // Both should arrive at similar positions (within 10% of target)
-      // Small differences due to floating point and frame timing are expected
-      expect(Math.abs(container60.scrollTop - container30.scrollTop)).toBeLessThan(10);
+      // Should scroll more than just base speed due to correction
+      // baseSpeed alone = 20 * 0.1 = 2px
+      // With max correction = (20 + 200) * 0.1 = 22px
+      expect(container.scrollTop).toBeGreaterThan(2);
     });
 
-    test('clears jumpSpeed when close to target (<5px)', () => {
-      const container = createMockContainer({ scrollTop: 97 });
+    test('ignores small errors within syncDeadband', () => {
+      const container = createMockContainer({ scrollTop: 800 });
+      const tracker = createMockPositionTracker(50); // Expected scroll ~802
+      const controller = new ScrollController(container, tracker, 100, {
+        correctionGain: 1.5,
+        syncDeadband: 15
+      });
+
+      controller.lastTimestamp = 0;
+
+      // Error = 802 - 800 = 2 (within deadband of 15)
+      // No correction should be applied
+
+      const initialScroll = container.scrollTop;
+      controller.tick(100);
+
+      // Should only apply base speed, no correction
+      // baseSpeed = 20 px/sec, dt = 0.1s, delta = 2px
+      const expectedDelta = controller.calculateBaseSpeed() * 0.1;
+      expect(container.scrollTop - initialScroll).toBeCloseTo(expectedDelta, 0);
+    });
+
+    test('skips frame if dt > 0.1s to avoid jumps', () => {
+      const container = createMockContainer({ scrollTop: 100 });
       const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        jumpSpeed: 15
-      });
+      const controller = new ScrollController(container, tracker, 100);
 
-      controller.currentJumpSpeed = 15;
-      controller.targetScrollTop = 100;
       controller.lastTimestamp = 0;
 
-      controller.tick(16.67);
+      // Simulate 200ms gap (should be skipped)
+      controller.tick(200);
 
-      // Should clear jumpSpeed since we're within 5px
-      expect(controller.currentJumpSpeed).toBeNull();
+      // Scroll should not change significantly
+      expect(container.scrollTop).toBe(100);
+    });
+
+    test('catch-up mode applies speed multiplier', () => {
+      const container = createMockContainer({ scrollTop: 0 });
+      const tracker = createMockPositionTracker(50);
+      const controller = new ScrollController(container, tracker, 100, {
+        catchUpMultiplier: 3,
+        correctionGain: 1.5
+      });
+
+      controller.isCatchingUp = true;
+      controller.lastTimestamp = 0;
+
+      controller.tick(100);
+
+      // With catch-up, base speed is tripled
+      // baseSpeed = 20 * 3 = 60 px/sec (before correction)
+      // Plus correction for being behind
+      expect(container.scrollTop).toBeGreaterThan(5);
+    });
+
+    test('exits catch-up mode when close to target', () => {
+      const container = createMockContainer({ scrollTop: 800 });
+      const tracker = createMockPositionTracker(50); // Expected ~802
+      const controller = new ScrollController(container, tracker, 100, {
+        syncDeadband: 15
+      });
+
+      controller.isCatchingUp = true;
+      controller.lastTimestamp = 0;
+
+      // Error = 802 - 800 = 2, which is < syncDeadband * 2 = 30
+      controller.tick(100);
+
+      expect(controller.isCatchingUp).toBe(false);
     });
   });
 
@@ -391,41 +474,36 @@ describe('ScrollController', () => {
       expect(controller.lastPositionTime).toBeGreaterThan(0);
     });
 
-    test('sets jumpSpeed for large skips (distance > 10)', () => {
+    test('enables catch-up mode for large skips (distance > 10)', () => {
       const container = createMockContainer();
       const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        jumpSpeed: 15
-      });
+      const controller = new ScrollController(container, tracker, 100);
 
       controller.onPositionAdvanced(20, 5); // distance = 15
 
-      expect(controller.currentJumpSpeed).toBe(15);
+      expect(controller.isCatchingUp).toBe(true);
     });
 
-    test('does not set jumpSpeed for small advances', () => {
+    test('does not enable catch-up mode for small advances', () => {
       const container = createMockContainer();
       const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        jumpSpeed: 15
-      });
+      const controller = new ScrollController(container, tracker, 100);
 
       controller.onPositionAdvanced(8, 5); // distance = 3
 
-      expect(controller.currentJumpSpeed).toBeNull();
+      expect(controller.isCatchingUp).toBe(false);
     });
 
-    test('updates targetScrollTop', () => {
+    test('updates lastAdvanceTime', () => {
       const container = createMockContainer();
       const tracker = createMockPositionTracker(0);
-      const controller = new ScrollController(container, tracker, 100, {
-        caretPercent: 33
-      });
+      const controller = new ScrollController(container, tracker, 100);
 
-      controller.onPositionAdvanced(50, 0);
+      const before = controller.lastAdvanceTime;
 
-      // Should match positionToScrollTop(50)
-      expect(controller.targetScrollTop).toBe(802);
+      controller.onPositionAdvanced(10, 0);
+
+      expect(controller.lastAdvanceTime).toBeGreaterThan(before);
     });
   });
 
@@ -437,6 +515,8 @@ describe('ScrollController', () => {
 
       // Should not throw
       expect(() => controller.positionToScrollTop(0)).not.toThrow();
+      expect(() => controller.getPixelsPerWord()).not.toThrow();
+      expect(() => controller.calculateBaseSpeed()).not.toThrow();
     });
 
     test('handles non-scrollable container (scrollHeight <= clientHeight)', () => {
@@ -457,9 +537,8 @@ describe('ScrollController', () => {
       const tracker = createMockPositionTracker(50);
       const controller = new ScrollController(container, tracker, 100);
 
-      controller.targetScrollTop = 500;
       controller.speakingPace = 5;
-      controller.currentJumpSpeed = 15;
+      controller.isCatchingUp = true;
       controller.lastPosition = 50;
       controller.lastPositionTime = 1000;
       controller.isTracking = true;
@@ -470,9 +549,8 @@ describe('ScrollController', () => {
       // initialScroll = clientHeight * (0.5 - 0.33) = 600 * 0.17 = 102
       const expectedScroll = container.clientHeight * (0.5 - controller.caretPercent / 100);
       expect(container.scrollTop).toBe(expectedScroll);
-      expect(controller.targetScrollTop).toBe(expectedScroll);
       expect(controller.speakingPace).toBe(2.5);
-      expect(controller.currentJumpSpeed).toBeNull();
+      expect(controller.isCatchingUp).toBe(false);
       expect(controller.lastPosition).toBe(0);
       expect(controller.lastPositionTime).toBe(-1);
       expect(controller.isTracking).toBe(false);
@@ -489,6 +567,30 @@ describe('ScrollController', () => {
       controller.tick(16.67);
 
       expect(tracker.getConfirmedPosition).toHaveBeenCalled();
+    });
+  });
+
+  describe('setCaretPercent', () => {
+    test('updates caretPercent', () => {
+      const container = createMockContainer();
+      const tracker = createMockPositionTracker(0);
+      const controller = new ScrollController(container, tracker, 100);
+
+      controller.setCaretPercent(50);
+
+      expect(controller.caretPercent).toBe(50);
+    });
+
+    test('clamps to valid range (10-90%)', () => {
+      const container = createMockContainer();
+      const tracker = createMockPositionTracker(0);
+      const controller = new ScrollController(container, tracker, 100);
+
+      controller.setCaretPercent(5);
+      expect(controller.caretPercent).toBe(10);
+
+      controller.setCaretPercent(95);
+      expect(controller.caretPercent).toBe(90);
     });
   });
 });

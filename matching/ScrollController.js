@@ -1,14 +1,16 @@
 /**
- * ScrollController - Reactive Scroll Control for Teleprompter
+ * ScrollController - Velocity-Based Scroll Control for Teleprompter
  *
- * Translates confirmed positions from PositionTracker into smooth scroll
- * animations. Keeps upcoming text at a fixed caret position and derives
- * scroll speed from the user's actual speech pace.
+ * Provides smooth continuous scrolling driven by speaking pace with
+ * proportional position correction. Unlike target-chasing approaches,
+ * this maintains constant forward motion and adjusts speed to stay
+ * in sync with confirmed speech position.
  *
  * Key design principles:
- * - Purely reactive: queries PositionTracker for position, never stores it
- * - Frame-rate independent: exponential smoothing animation
- * - Speech-driven: scroll speed derived from speaking pace
+ * - Continuous motion: always scrolling forward at pace-derived speed
+ * - Velocity-based: manipulates scroll speed, not position targets
+ * - Proportional correction: gently adjusts speed to maintain sync
+ * - Speech-driven: base scroll speed derived from speaking pace
  *
  * @module ScrollController
  */
@@ -17,18 +19,20 @@
  * @typedef {Object} ScrollControllerOptions
  * @property {number} [caretPercent=33] - Caret position as % from top (33 = upper third)
  * @property {number} [holdTimeout=5000] - ms of silence before holding state
- * @property {number} [baseSpeed=5] - exponential smoothing base speed
- * @property {number} [jumpSpeed=15] - faster speed for skip jumps
+ * @property {number} [correctionGain=1.5] - Proportional gain for position correction
+ * @property {number} [maxCorrectionSpeed=200] - Maximum correction speed in px/sec
+ * @property {number} [syncDeadband=15] - Position error (px) to ignore
  * @property {number} [minPace=0.5] - minimum words/second
  * @property {number} [maxPace=10] - maximum words/second
+ * @property {number} [catchUpMultiplier=3] - Speed multiplier during skip catch-up
  * @property {Function} [onStateChange] - callback when tracking/holding state changes
  */
 
 /**
- * Reactive scroll controller for teleprompter display.
+ * Velocity-based scroll controller for teleprompter display.
  *
- * Responds to position events from PositionTracker rather than driving them.
- * Uses exponential smoothing for frame-rate independent animation.
+ * Maintains continuous forward scrolling at a speed derived from speaking
+ * pace, with proportional correction to stay aligned with confirmed position.
  *
  * @example
  * const controller = new ScrollController(container, positionTracker, 100, {
@@ -53,10 +57,12 @@ export class ScrollController {
     const {
       caretPercent = 33,
       holdTimeout = 5000,
-      baseSpeed = 5,
-      jumpSpeed = 15,
+      correctionGain = 1.5,
+      maxCorrectionSpeed = 200,
+      syncDeadband = 15,
       minPace = 0.5,
       maxPace = 10,
+      catchUpMultiplier = 3,
       onStateChange = () => {}
     } = options;
 
@@ -75,17 +81,23 @@ export class ScrollController {
     /** @type {number} Timeout (ms) before transitioning to holding state */
     this.holdTimeout = holdTimeout;
 
-    /** @type {number} Base exponential smoothing speed */
-    this.baseSpeed = baseSpeed;
+    /** @type {number} Proportional gain for position correction */
+    this.correctionGain = correctionGain;
 
-    /** @type {number} Faster speed for skip jumps */
-    this.jumpSpeed = jumpSpeed;
+    /** @type {number} Maximum correction speed in px/sec */
+    this.maxCorrectionSpeed = maxCorrectionSpeed;
+
+    /** @type {number} Position error (px) below which no correction is applied */
+    this.syncDeadband = syncDeadband;
 
     /** @type {number} Minimum words per second */
     this.minPace = minPace;
 
     /** @type {number} Maximum words per second */
     this.maxPace = maxPace;
+
+    /** @type {number} Speed multiplier during skip catch-up */
+    this.catchUpMultiplier = catchUpMultiplier;
 
     /** @type {Function} Callback for state changes */
     this.onStateChange = onStateChange;
@@ -97,11 +109,8 @@ export class ScrollController {
     /** @type {number} Last animation frame timestamp */
     this.lastTimestamp = 0;
 
-    /** @type {number} Target scroll position */
-    this.targetScrollTop = 0;
-
-    /** @type {number|null} Current jump speed (null = use pace-derived) */
-    this.currentJumpSpeed = null;
+    /** @type {boolean} Whether in catch-up mode (after skip) */
+    this.isCatchingUp = false;
 
     // Pace tracking
     /** @type {number} Current speaking pace in words/second */
@@ -125,6 +134,27 @@ export class ScrollController {
   }
 
   /**
+   * Calculate pixels per word based on container dimensions.
+   *
+   * @returns {number} Pixels scrolled per word of script
+   */
+  getPixelsPerWord() {
+    const scrollHeight = this.container.scrollHeight;
+    const containerHeight = this.container.clientHeight;
+
+    // Content area excludes 50vh padding on top and bottom
+    const paddingTop = containerHeight * 0.5;
+    const paddingBottom = containerHeight * 0.5;
+    const contentHeight = scrollHeight - paddingTop - paddingBottom;
+
+    if (this.totalWords === 0) {
+      return 0;
+    }
+
+    return contentHeight / this.totalWords;
+  }
+
+  /**
    * Start scroll control.
    *
    * Begins the animation loop and sets state to tracking.
@@ -132,8 +162,6 @@ export class ScrollController {
   start() {
     this.lastTimestamp = performance.now();
     this.lastAdvanceTime = this.lastTimestamp;
-    // Preserve current scroll position as target (don't snap to 0)
-    this.targetScrollTop = this.container.scrollTop;
     this.isTracking = true;
     this.onStateChange('tracking');
     this.animationId = requestAnimationFrame(this.tick);
@@ -227,30 +255,25 @@ export class ScrollController {
   }
 
   /**
-   * Calculate scroll speed for exponential smoothing.
+   * Calculate base scroll speed from speaking pace.
    *
-   * Returns jumpSpeed if set (during skip), otherwise calculates
-   * proportional speed based on current speaking pace.
+   * Converts words/second to pixels/second using content dimensions.
    *
-   * @returns {number} Speed for exponential smoothing formula
+   * @returns {number} Base scroll speed in pixels/second
    */
-  calculateSpeed() {
-    if (this.currentJumpSpeed !== null) {
-      return this.currentJumpSpeed;
-    }
-
-    // Convert pace to exponential smoothing speed
-    // Higher pace = higher speed (faster convergence)
-    return this.baseSpeed * (this.speakingPace / 2.5);
+  calculateBaseSpeed() {
+    const pixelsPerWord = this.getPixelsPerWord();
+    return this.speakingPace * pixelsPerWord;
   }
 
   /**
    * Animation frame callback.
    *
-   * Implements exponential smoothing scroll animation:
-   * newScroll = current + (target - current) * (1 - exp(-speed * dt))
-   *
-   * This formula is frame-rate independent.
+   * Implements velocity-based scrolling with proportional correction:
+   * 1. Calculate base speed from speaking pace
+   * 2. Calculate position error (expected vs actual)
+   * 3. Apply proportional correction to speed
+   * 4. Apply scroll increment
    *
    * @param {number} timestamp - requestAnimationFrame timestamp
    */
@@ -258,7 +281,13 @@ export class ScrollController {
     const dt = (timestamp - this.lastTimestamp) / 1000; // seconds
     this.lastTimestamp = timestamp;
 
-    // Query PositionTracker for current position
+    // Avoid huge jumps on first frame or after pause
+    if (dt > 0.1) {
+      this.animationId = requestAnimationFrame(this.tick);
+      return;
+    }
+
+    // Query PositionTracker for current confirmed position
     const confirmedPosition = this.positionTracker.getConfirmedPosition();
 
     // Check for silence -> hold transition
@@ -267,20 +296,45 @@ export class ScrollController {
       this.onStateChange('holding');
     }
 
-    // Exponential smoothing scroll animation
-    const target = this.targetScrollTop;
-    const current = this.container.scrollTop;
-    const speed = this.calculateSpeed();
+    // Calculate expected scroll position for confirmed word
+    const expectedScroll = this.positionToScrollTop(confirmedPosition);
+    const currentScroll = this.container.scrollTop;
+    const maxScroll = this.container.scrollHeight - this.container.clientHeight;
 
-    const factor = 1 - Math.exp(-speed * dt);
-    const newScroll = current + (target - current) * factor;
+    // Calculate position error
+    const error = expectedScroll - currentScroll;
 
-    this.container.scrollTop = newScroll;
+    // Calculate base scroll speed from speaking pace
+    let baseSpeed = this.calculateBaseSpeed();
 
-    // Clear jump speed once close to target
-    if (this.currentJumpSpeed !== null && Math.abs(target - newScroll) < 5) {
-      this.currentJumpSpeed = null;
+    // Apply catch-up multiplier if in catch-up mode
+    if (this.isCatchingUp) {
+      baseSpeed *= this.catchUpMultiplier;
+      // Exit catch-up mode when close enough
+      if (Math.abs(error) < this.syncDeadband * 2) {
+        this.isCatchingUp = false;
+      }
     }
+
+    // Calculate correction speed (proportional control)
+    let correctionSpeed = 0;
+    if (Math.abs(error) > this.syncDeadband) {
+      // Apply proportional correction
+      correctionSpeed = error * this.correctionGain;
+      // Clamp correction to maximum
+      correctionSpeed = Math.max(-this.maxCorrectionSpeed, Math.min(this.maxCorrectionSpeed, correctionSpeed));
+    }
+
+    // Calculate effective speed
+    const effectiveSpeed = baseSpeed + correctionSpeed;
+
+    // Apply scroll increment
+    const scrollDelta = effectiveSpeed * dt;
+    let newScroll = currentScroll + scrollDelta;
+
+    // Clamp to valid range
+    newScroll = Math.max(0, Math.min(maxScroll, newScroll));
+    this.container.scrollTop = newScroll;
 
     // Continue animation loop
     this.animationId = requestAnimationFrame(this.tick);
@@ -290,8 +344,7 @@ export class ScrollController {
    * Notify of position advance.
    *
    * Called after PositionTracker.processMatch returns 'advanced'.
-   * Updates pace calculation, sets jump speed for skips, and
-   * resumes tracking if in holding state.
+   * Updates pace calculation and triggers catch-up mode for skips.
    *
    * @param {number} newPosition - New confirmed position
    * @param {number} prevPosition - Previous confirmed position
@@ -302,14 +355,11 @@ export class ScrollController {
     // Update pace calculation
     this.updatePace(newPosition, now);
 
-    // Check for skip (large jump)
+    // Check for skip (large jump) - trigger catch-up mode
     const distance = newPosition - prevPosition;
     if (distance > 10) {
-      this.currentJumpSpeed = this.jumpSpeed;
+      this.isCatchingUp = true;
     }
-
-    // Update target scroll
-    this.targetScrollTop = this.positionToScrollTop(newPosition);
 
     // Resume tracking if holding
     this.lastAdvanceTime = now;
@@ -322,16 +372,13 @@ export class ScrollController {
   /**
    * Set caret position.
    *
-   * Updates caret percent and recalculates target for current position.
+   * Updates caret percent. Position will naturally sync via correction.
    * Clamps to valid range (10-90%).
    *
    * @param {number} percent - Caret position as percentage from top
    */
   setCaretPercent(percent) {
     this.caretPercent = Math.max(10, Math.min(90, percent));
-    // Recalculate target for current position
-    const currentPosition = this.positionTracker.getConfirmedPosition();
-    this.targetScrollTop = this.positionToScrollTop(currentPosition);
   }
 
   /**
@@ -345,10 +392,9 @@ export class ScrollController {
     // Container has 50vh padding, caret at 33% by default
     const initialScroll = this.container.clientHeight * (0.5 - this.caretPercent / 100);
     this.container.scrollTop = initialScroll;
-    this.targetScrollTop = initialScroll;
     this.lastPosition = 0;
     this.lastPositionTime = -1;
     this.speakingPace = 2.5;
-    this.currentJumpSpeed = null;
+    this.isCatchingUp = false;
   }
 }
