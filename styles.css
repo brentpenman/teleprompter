@@ -306,30 +306,6 @@ body {
     color: #fff;
 }
 
-#debug-overlay .tune-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 4px 0;
-}
-
-#debug-overlay .tune-row label {
-    font-size: 10px;
-    color: #888;
-}
-
-#debug-overlay .tune-row input {
-    width: 60px;
-    padding: 2px 4px;
-    font-size: 11px;
-    font-family: monospace;
-    background: #222;
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 2px;
-    text-align: right;
-}
-
 /* Caret line - fixed position marker (hidden by default) */
 .caret-line {
     position: fixed;

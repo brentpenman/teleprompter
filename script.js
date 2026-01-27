@@ -115,7 +115,7 @@ OTHER CONTROLS
 - Exit returns to this editor
 
 ADVANCED
-Press Ctrl+Shift+D (or Cmd+Shift+D on Mac) to open the debug overlay with detailed stats and tuning controls.
+Press Ctrl+Shift+D (or Cmd+Shift+D on Mac) to open the debug overlay with detailed stats.
 
 Delete this text and paste your script to get started!`;
 
@@ -634,13 +634,6 @@ function showExportFallback() {
   }
 }
 
-function setupTuningControls() {
-  // v1.0 tuning controls - disabled in v1.1
-  // The v1.1 pipeline uses PositionTracker/ScrollController with different tuning
-  // These controls may be re-implemented in a future phase
-  console.log('[Tuning] v1.0 tuning controls disabled (v1.1 pipeline active)');
-}
-
 function updateVoiceIndicator() {
   if (!audioVisualizer) return;
 
@@ -887,7 +880,6 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSpeedDisplay();
   updateSizeDisplay();
   updateHighlightButton();
-  setupTuningControls();
 
   // Initialize default script if textarea is empty
   if (!scriptInput.value) {
