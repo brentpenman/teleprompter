@@ -438,10 +438,9 @@ async function enableVoiceMode() {
   voiceToggle.classList.add('active');
   listeningIndicator.classList.remove('hidden');
 
-  // Show debug overlay and start updating
-  if (debugOverlay) {
-    debugOverlay.classList.remove('hidden');
-    debugUpdateInterval = setInterval(updateDebugOverlay, 100);
+  // Start debug updates if debug mode is enabled (keyboard shortcut controls visibility)
+  if (debugMode) {
+    startDebugUpdates();
   }
 }
 
@@ -470,14 +469,8 @@ function disableVoiceMode() {
   voiceToggle.classList.remove('active');
   listeningIndicator.classList.add('hidden');
 
-  // Hide debug overlay
-  if (debugOverlay) {
-    debugOverlay.classList.add('hidden');
-  }
-  if (debugUpdateInterval) {
-    clearInterval(debugUpdateInterval);
-    debugUpdateInterval = null;
-  }
+  // Stop debug updates (keyboard shortcut controls visibility)
+  stopDebugUpdates();
 }
 
 function handleMicrophoneError(err) {
@@ -906,9 +899,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const caretLine = document.getElementById('caret-line');
     if (caretLine) caretLine.style.top = `${value}%`;
 
+    // Update reading marker (arrow) position
+    const readingMarker = document.querySelector('.reading-marker');
+    if (readingMarker) readingMarker.style.top = `${value}%`;
+
     // Update ScrollController (if initialized)
     if (scrollController && scrollController.setCaretPercent) {
       scrollController.setCaretPercent(value);
+    }
+  });
+
+  // Caret arrow visibility toggle
+  document.getElementById('caret-arrow-toggle')?.addEventListener('change', (e) => {
+    const readingMarker = document.querySelector('.reading-marker');
+    if (readingMarker) {
+      readingMarker.classList.toggle('hidden', !e.target.checked);
+    }
+  });
+
+  // Caret line visibility toggle
+  document.getElementById('caret-line-toggle')?.addEventListener('change', (e) => {
+    const caretLine = document.getElementById('caret-line');
+    if (caretLine) {
+      caretLine.classList.toggle('visible', e.target.checked);
     }
   });
 });

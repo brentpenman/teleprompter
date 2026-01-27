@@ -121,6 +121,10 @@ body {
     z-index: 10;
 }
 
+.reading-marker.hidden {
+    display: none;
+}
+
 /* Controls Overlay */
 .controls-overlay {
     position: fixed;
@@ -232,6 +236,12 @@ body {
     color: white;
 }
 
+/* Highlight toggle active state */
+#highlight-toggle.active {
+    background: #3b82f6;
+    color: white;
+}
+
 #voice-toggle:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -301,7 +311,7 @@ body {
     text-align: right;
 }
 
-/* Caret line - fixed position marker */
+/* Caret line - fixed position marker (hidden by default) */
 .caret-line {
     position: fixed;
     top: 33%;
@@ -311,6 +321,11 @@ body {
     background: rgba(255, 255, 255, 0.3);
     pointer-events: none;
     z-index: 10;
+    display: none;
+}
+
+.caret-line.visible {
+    display: block;
 }
 
 /* Tracking state indicator */
@@ -369,6 +384,25 @@ body {
     color: #fff;
     min-width: 30px;
     text-align: right;
+}
+
+.caret-visibility {
+    display: flex;
+    gap: 15px;
+    margin: 8px 0;
+}
+
+.caret-visibility label {
+    font-size: 10px;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.caret-visibility input[type="checkbox"] {
+    cursor: pointer;
 }
 
 /* Debug button styles */
