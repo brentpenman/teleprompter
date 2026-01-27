@@ -96,6 +96,13 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 50vh 2rem 50vh 2rem;
+    /* Hide scrollbar while preserving scroll functionality */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+#teleprompter-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 #teleprompter-text {
