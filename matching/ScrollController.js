@@ -132,6 +132,8 @@ export class ScrollController {
   start() {
     this.lastTimestamp = performance.now();
     this.lastAdvanceTime = this.lastTimestamp;
+    // Preserve current scroll position as target (don't snap to 0)
+    this.targetScrollTop = this.container.scrollTop;
     this.isTracking = true;
     this.onStateChange('tracking');
     this.animationId = requestAnimationFrame(this.tick);
@@ -175,9 +177,16 @@ export class ScrollController {
       return 0;
     }
 
-    // Where this word is in the document (proportional)
+    // Container has 50vh top and bottom padding
+    // Content starts at 50vh and ends at scrollHeight - 50vh
+    const paddingTop = containerHeight * 0.5;
+    const paddingBottom = containerHeight * 0.5;
+    const contentHeight = scrollHeight - paddingTop - paddingBottom;
+
+    // Where this word is within the content area
     const wordPercent = wordIndex / this.totalWords;
-    const wordPositionInDoc = wordPercent * scrollHeight;
+    const wordPositionInContent = wordPercent * contentHeight;
+    const wordPositionInDoc = paddingTop + wordPositionInContent;
 
     // Offset to position at caret
     const caretOffset = (this.caretPercent / 100) * containerHeight;

@@ -740,12 +740,19 @@ function switchMode(newMode) {
     // Apply font size from state
     applyFontSize();
 
-    // Reset scroll position
-    teleprompterContainer.scrollTop = 0;
-
     // Switch views
     editorView.classList.add('hidden');
     teleprompterView.classList.remove('hidden');
+
+    // Set initial scroll position to align first line with caret
+    // Must happen AFTER view is visible so layout is calculated
+    // Container has 50vh top padding, caret is at 33% - scroll to align them
+    requestAnimationFrame(() => {
+      const caretPercent = 33;
+      const paddingPercent = 50;
+      const initialScroll = window.innerHeight * (paddingPercent - caretPercent) / 100;
+      teleprompterContainer.scrollTop = initialScroll;
+    });
 
     // Update state
     state.mode = 'teleprompter';
