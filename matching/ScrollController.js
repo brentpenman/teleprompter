@@ -22,6 +22,7 @@
  * @property {number} [correctionGain=1.5] - Proportional gain for position correction
  * @property {number} [maxCorrectionSpeed=200] - Maximum correction speed in px/sec
  * @property {number} [syncDeadband=15] - Position error (px) to ignore
+ * @property {number} [correctionSmoothing=3] - Smoothing rate for correction speed (higher = faster response)
  * @property {number} [minPace=0.5] - minimum words/second
  * @property {number} [maxPace=10] - maximum words/second
  * @property {number} [catchUpMultiplier=3] - Speed multiplier during skip catch-up
@@ -60,6 +61,7 @@ export class ScrollController {
       correctionGain = 1.5,
       maxCorrectionSpeed = 200,
       syncDeadband = 15,
+      correctionSmoothing = 3,
       minPace = 0.5,
       maxPace = 10,
       catchUpMultiplier = 3,
@@ -90,6 +92,9 @@ export class ScrollController {
     /** @type {number} Position error (px) below which no correction is applied */
     this.syncDeadband = syncDeadband;
 
+    /** @type {number} Smoothing rate for correction speed changes */
+    this.correctionSmoothing = correctionSmoothing;
+
     /** @type {number} Minimum words per second */
     this.minPace = minPace;
 
@@ -111,6 +116,9 @@ export class ScrollController {
 
     /** @type {boolean} Whether in catch-up mode (after skip) */
     this.isCatchingUp = false;
+
+    /** @type {number} Smoothed correction speed (prevents sudden jumps) */
+    this.smoothedCorrectionSpeed = 0;
 
     // Pace tracking
     /** @type {number} Current speaking pace in words/second */
@@ -316,17 +324,21 @@ export class ScrollController {
       }
     }
 
-    // Calculate correction speed (proportional control)
-    let correctionSpeed = 0;
+    // Calculate target correction speed (proportional control)
+    let targetCorrectionSpeed = 0;
     if (Math.abs(error) > this.syncDeadband) {
       // Apply proportional correction
-      correctionSpeed = error * this.correctionGain;
+      targetCorrectionSpeed = error * this.correctionGain;
       // Clamp correction to maximum
-      correctionSpeed = Math.max(-this.maxCorrectionSpeed, Math.min(this.maxCorrectionSpeed, correctionSpeed));
+      targetCorrectionSpeed = Math.max(-this.maxCorrectionSpeed, Math.min(this.maxCorrectionSpeed, targetCorrectionSpeed));
     }
 
+    // Smooth the correction speed (exponential smoothing, frame-rate independent)
+    const smoothingFactor = 1 - Math.exp(-this.correctionSmoothing * dt);
+    this.smoothedCorrectionSpeed += (targetCorrectionSpeed - this.smoothedCorrectionSpeed) * smoothingFactor;
+
     // Calculate effective speed
-    const effectiveSpeed = baseSpeed + correctionSpeed;
+    const effectiveSpeed = baseSpeed + this.smoothedCorrectionSpeed;
 
     // Apply scroll increment
     const scrollDelta = effectiveSpeed * dt;
@@ -396,5 +408,6 @@ export class ScrollController {
     this.lastPositionTime = -1;
     this.speakingPace = 2.5;
     this.isCatchingUp = false;
+    this.smoothedCorrectionSpeed = 0;
   }
 }

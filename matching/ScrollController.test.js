@@ -522,6 +522,7 @@ describe('ScrollController', () => {
 
       controller.speakingPace = 5;
       controller.isCatchingUp = true;
+      controller.smoothedCorrectionSpeed = 100;
       controller.lastPosition = 50;
       controller.lastPositionTime = 1000;
       controller.isTracking = true;
@@ -534,6 +535,7 @@ describe('ScrollController', () => {
       expect(container.scrollTop).toBe(expectedScroll);
       expect(controller.speakingPace).toBe(2.5);
       expect(controller.isCatchingUp).toBe(false);
+      expect(controller.smoothedCorrectionSpeed).toBe(0);
       expect(controller.lastPosition).toBe(0);
       expect(controller.lastPositionTime).toBe(-1);
       expect(controller.isTracking).toBe(false);
