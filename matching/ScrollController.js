@@ -341,8 +341,11 @@ export class ScrollController {
    */
   reset() {
     this.stop();
-    this.container.scrollTop = 0;
-    this.targetScrollTop = 0;
+    // Reset scroll to align first line with caret (don't set to 0)
+    // Container has 50vh padding, caret at 33% by default
+    const initialScroll = this.container.clientHeight * (0.5 - this.caretPercent / 100);
+    this.container.scrollTop = initialScroll;
+    this.targetScrollTop = initialScroll;
     this.lastPosition = 0;
     this.lastPositionTime = -1;
     this.speakingPace = 2.5;

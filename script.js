@@ -178,9 +178,12 @@ function resetTeleprompter() {
     stopScrolling();
   }
 
-  // Reset scroll position to top
+  // Reset scroll position to align first line with caret
   if (teleprompterContainer) {
-    teleprompterContainer.scrollTop = 0;
+    const caretPercent = 33;
+    const paddingPercent = 50;
+    const initialScroll = window.innerHeight * (paddingPercent - caretPercent) / 100;
+    teleprompterContainer.scrollTop = initialScroll;
   }
 
   // Reset v1.1 pipeline components
