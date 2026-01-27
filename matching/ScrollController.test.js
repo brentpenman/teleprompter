@@ -16,8 +16,10 @@ import { jest } from '@jest/globals';
 import { ScrollController } from './ScrollController.js';
 
 // Mock requestAnimationFrame and cancelAnimationFrame for Node environment
-global.requestAnimationFrame = jest.fn((cb) => setTimeout(cb, 16));
-global.cancelAnimationFrame = jest.fn((id) => clearTimeout(id));
+// Return incrementing IDs but don't actually schedule callbacks (prevents infinite loops)
+let rafId = 0;
+global.requestAnimationFrame = jest.fn(() => ++rafId);
+global.cancelAnimationFrame = jest.fn();
 global.performance = global.performance || { now: () => Date.now() };
 
 /**
@@ -48,19 +50,22 @@ function createMockPositionTracker(confirmedPosition = 0) {
 
 describe('ScrollController', () => {
   describe('positionToScrollTop', () => {
-    test('returns 0 for word index 0 (clamped)', () => {
+    test('returns initial scroll for word index 0 (aligns with caret)', () => {
       const container = createMockContainer();
       const tracker = createMockPositionTracker(0);
       const controller = new ScrollController(container, tracker, 100, {
         caretPercent: 33
       });
 
-      // wordIndex=0, totalWords=100, containerHeight=600, scrollHeight=2000, caretPercent=33
-      // wordPositionInDoc = (0/100) * 2000 = 0
+      // wordIndex=0, containerHeight=600, scrollHeight=2000, caretPercent=33
+      // paddingTop = 600 * 0.5 = 300
+      // contentHeight = 2000 - 300 - 300 = 1400
+      // wordPositionInContent = (0/100) * 1400 = 0
+      // wordPositionInDoc = 300 + 0 = 300
       // caretOffset = 0.33 * 600 = 198
-      // targetScroll = 0 - 198 = -198 -> clamped to 0
+      // targetScroll = 300 - 198 = 102
       const result = controller.positionToScrollTop(0);
-      expect(result).toBe(0);
+      expect(result).toBe(102);
     });
 
     test('calculates correct scroll for middle position', () => {
@@ -196,35 +201,12 @@ describe('ScrollController', () => {
       const tracker = createMockPositionTracker(0);
       const controller = new ScrollController(container, tracker, 100);
 
-      // contentHeight = scrollHeight - paddingTop - paddingBottom
-      // contentHeight = 2000 - 300 - 300 = 1400 (50vh = 300px padding each)
-      // Actually: paddingTop = clientHeight * 0.5 = 300, same for bottom
-      // contentHeight = 2000 - 600 = 1400? No wait...
-      // paddingTop = 600 * 0.5 = 300
-      // paddingBottom = 600 * 0.5 = 300
-      // contentHeight = 2000 - 300 - 300 = 1400
-      // But that's not how the code works - let me check:
-      // contentHeight = scrollHeight - paddingTop - paddingBottom = 2000 - 300 - 300 = 1400
-      // Actually no, the code says:
-      // contentHeight = scrollHeight - paddingTop - paddingBottom
-      // where paddingTop = containerHeight * 0.5 and paddingBottom = containerHeight * 0.5
-      // So contentHeight = 2000 - 300 - 300 = 1400
-      // Wait, but scrollHeight includes the padding... Let me re-read the code.
-      // The content area excludes 50vh padding on top and bottom
       // paddingTop = clientHeight * 0.5 = 300
       // paddingBottom = clientHeight * 0.5 = 300
       // contentHeight = scrollHeight - paddingTop - paddingBottom = 2000 - 300 - 300 = 1400
-      // Hmm but that doesn't match the positionToScrollTop calculation which I previously tested
-      // Let me check positionToScrollTop for wordIndex=50:
-      // paddingTop = 600 * 0.5 = 300
-      // contentHeight = 2000 - 300 - 300 = 1400
-      // wordPercent = 50/100 = 0.5
-      // wordPositionInContent = 0.5 * 1400 = 700
-      // wordPositionInDoc = 300 + 700 = 1000
-      // That matches! So contentHeight = 1400
       // pixelsPerWord = 1400 / 100 = 14
       const result = controller.getPixelsPerWord();
-      expect(result).toBe(8); // contentHeight (800) / totalWords (100)
+      expect(result).toBe(14);
     });
 
     test('returns 0 for zero total words', () => {
@@ -246,10 +228,10 @@ describe('ScrollController', () => {
       const controller = new ScrollController(container, tracker, 100);
 
       // Default pace is 2.5 wps
-      // pixelsPerWord = 8 (from getPixelsPerWord test)
-      // baseSpeed = 2.5 * 8 = 20 px/sec
+      // pixelsPerWord = 14 (from getPixelsPerWord test)
+      // baseSpeed = 2.5 * 14 = 35 px/sec
       const result = controller.calculateBaseSpeed();
-      expect(result).toBe(20);
+      expect(result).toBe(35);
     });
 
     test('scales with speaking pace', () => {
@@ -262,9 +244,9 @@ describe('ScrollController', () => {
 
       controller.speakingPace = 5; // Double the default
 
-      // baseSpeed = 5 * 8 = 40 px/sec
+      // baseSpeed = 5 * 14 = 70 px/sec
       const result = controller.calculateBaseSpeed();
-      expect(result).toBe(40);
+      expect(result).toBe(70);
     });
   });
 
@@ -416,9 +398,10 @@ describe('ScrollController', () => {
 
       controller.start();
       controller.lastAdvanceTime = 0;
-      controller.lastTimestamp = 0;
+      // Set lastTimestamp close to tick time so dt < 0.1s (won't skip frame)
+      controller.lastTimestamp = 5000;
 
-      // Simulate tick at 5001ms (past holdTimeout)
+      // Simulate tick at 5001ms (past holdTimeout, dt = 1ms)
       controller.tick(5001);
 
       expect(controller.isTracking).toBe(false);
