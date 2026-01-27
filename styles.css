@@ -55,6 +55,10 @@ body {
     color: #888;
 }
 
+#script-input.has-default-script {
+    color: #666;
+}
+
 #start-button {
     margin-top: 1.5rem;
     padding: 1rem 2rem;

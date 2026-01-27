@@ -91,6 +91,34 @@ const MAX_FONT_SIZE = 96;
 const FONT_INCREMENT = 4;
 const SETTINGS_KEY = 'teleprompter-settings';
 
+// Default script shown to new users
+const DEFAULT_SCRIPT = `Welcome to Teleprompter!
+
+This app helps you read scripts smoothly while recording videos or giving presentations. Here's how to use it:
+
+GETTING STARTED
+Paste or type your script in this box, then click "Start Teleprompter" to begin.
+
+PLAY MODE
+Press the green Play button or hit Space to start auto-scrolling. Use the Speed controls or Arrow keys to adjust how fast the text moves. Press Space again to pause.
+
+VOICE MODE
+Click the purple Voice button to enable voice-controlled scrolling. The teleprompter will follow along as you speak, highlighting your position in the script. This requires microphone access.
+
+Note: Play and Voice modes cannot be used at the same time.
+
+OTHER CONTROLS
+- Text +/- adjusts the font size (or use + and - keys)
+- Fullscreen expands the view (or press F)
+- Reset returns to the beginning
+- Highlight toggles word highlighting in voice mode
+- Exit returns to this editor
+
+ADVANCED
+Press Ctrl+Shift+D (or Cmd+Shift+D on Mac) to open the debug overlay with detailed stats and tuning controls.
+
+Delete this text and paste your script to get started!`;
+
 // DOM elements (initialized on DOMContentLoaded)
 let editorView;
 let teleprompterView;
@@ -860,6 +888,20 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSizeDisplay();
   updateHighlightButton();
   setupTuningControls();
+
+  // Initialize default script if textarea is empty
+  if (!scriptInput.value) {
+    scriptInput.value = DEFAULT_SCRIPT;
+    scriptInput.classList.add('has-default-script');
+  }
+
+  // Clear default script when user enters any text (typing or pasting)
+  scriptInput.addEventListener('beforeinput', (e) => {
+    if (scriptInput.classList.contains('has-default-script') && e.inputType.startsWith('insert')) {
+      scriptInput.value = '';
+      scriptInput.classList.remove('has-default-script');
+    }
+  });
 
   // Event listeners - Editor
   startButton.addEventListener('click', () => {
