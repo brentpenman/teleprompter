@@ -452,7 +452,7 @@ describe('ScrollController', () => {
       expect(result).toBe(0);
     });
 
-    test('reset() clears all state and scrollTop to 0', () => {
+    test('reset() clears all state and aligns scroll with caret', () => {
       const container = createMockContainer({ scrollTop: 500 });
       const tracker = createMockPositionTracker(50);
       const controller = new ScrollController(container, tracker, 100);
@@ -466,8 +466,11 @@ describe('ScrollController', () => {
 
       controller.reset();
 
-      expect(container.scrollTop).toBe(0);
-      expect(controller.targetScrollTop).toBe(0);
+      // Initial scroll aligns first line with caret (50vh padding, 33% caret)
+      // initialScroll = clientHeight * (0.5 - 0.33) = 600 * 0.17 = 102
+      const expectedScroll = container.clientHeight * (0.5 - controller.caretPercent / 100);
+      expect(container.scrollTop).toBe(expectedScroll);
+      expect(controller.targetScrollTop).toBe(expectedScroll);
       expect(controller.speakingPace).toBe(2.5);
       expect(controller.currentJumpSpeed).toBeNull();
       expect(controller.lastPosition).toBe(0);
