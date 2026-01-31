@@ -140,7 +140,7 @@ export function findMatches(transcript, matcher, currentPosition, options = {}) 
     threshold = 0.3
   } = options;
 
-  const { scriptIndex, fuse } = matcher;
+  const { scriptIndex } = matcher;
 
   // Tokenize and filter spoken input
   const words = tokenize(transcript);
@@ -161,6 +161,34 @@ export function findMatches(transcript, matcher, currentPosition, options = {}) 
   const searchStart = Math.max(0, clampedPosition - radius);
   const searchEnd = Math.min(scriptIndex.length, clampedPosition + radius);
 
+  // Build windowed Fuse.js index scoped to search bounds (Option A, PRD-002)
+  // Instead of searching the full script index (potentially 5000+ entries),
+  // create a small index covering only the ~100 entries in the search window.
+  const windowedSlice = scriptIndex.slice(searchStart, searchEnd);
+  const windowedFuse = new Fuse(windowedSlice, {
+    keys: ['word'],
+    threshold,
+    includeScore: true,
+    ignoreLocation: true,
+    minMatchCharLength: 2
+  });
+
+  // Pre-compute fuzzy results for each spoken word (searched once, reused at every position)
+  // Maps spoken word -> Map of scriptIndex position -> fuse score
+  const fuzzyCache = new Map();
+  for (const spokenWord of window) {
+    if (!fuzzyCache.has(spokenWord)) {
+      const positionScores = new Map();
+      const results = windowedFuse.search(spokenWord);
+      for (const r of results) {
+        if (r.score <= threshold) {
+          positionScores.set(r.item.index, r.score);
+        }
+      }
+      fuzzyCache.set(spokenWord, positionScores);
+    }
+  }
+
   // Find consecutive matches within search bounds
   const candidates = [];
 
@@ -169,16 +197,21 @@ export function findMatches(transcript, matcher, currentPosition, options = {}) 
     let totalScore = 0;
 
     for (let i = 0; i < window.length; i++) {
-      const results = fuse.search(window[i]);
+      const spokenWord = window[i];
+      const scriptWord = scriptIndex[pos + i].word;
 
-      // Find if any result matches this exact position
-      const match = results.find(r =>
-        r.item.index === pos + i && r.score <= threshold
-      );
-
-      if (match) {
+      // Fast path: exact string match (score 0 = perfect)
+      if (spokenWord === scriptWord) {
         matchCount++;
-        totalScore += match.score;
+        // totalScore += 0; exact match has perfect score
+      } else {
+        // Slow path: lookup pre-computed fuzzy results by position
+        const score = fuzzyCache.get(spokenWord)?.get(pos + i);
+
+        if (score !== undefined) {
+          matchCount++;
+          totalScore += score;
+        }
       }
     }
 

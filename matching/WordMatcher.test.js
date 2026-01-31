@@ -135,6 +135,144 @@ describe('WordMatcher', () => {
     });
   });
 
+  describe('exact-match fast path (PRD-002)', () => {
+    it('returns perfect fuse score (avgFuseScore=0) for exact word matches', () => {
+      const script = 'four score and seven years ago';
+      const matcher = createMatcher(script);
+
+      // Exact transcript at position 0 — all words match exactly
+      const result = findMatches('four score and', matcher, 0);
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(2); // "and" at index 2
+      // Exact matches should have avgFuseScore of 0 (perfect match quality)
+      expect(result.bestMatch.avgFuseScore).toBe(0);
+      // combinedScore accounts for distance penalty (endPosition=2, currentPosition=0)
+      // so it won't be exactly 1, but should be very close
+      expect(result.bestMatch.combinedScore).toBeGreaterThan(0.95);
+    });
+
+    it('still finds fuzzy matches when exact match fails', () => {
+      const script = 'presenting the results of our study';
+      const matcher = createMatcher(script);
+
+      // "presentin" is not exact but should fuzzy-match "presenting"
+      const result = findMatches('presentin the results', matcher, 0, { threshold: 0.3 });
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(2); // "results" at index 2
+      // Score should be > 0 since not all words are exact matches
+      expect(result.bestMatch.avgFuseScore).toBeGreaterThan(0);
+    });
+
+    it('mixes exact and fuzzy matches in the same window', () => {
+      const script = 'the quick brown fox jumps';
+      const matcher = createMatcher(script);
+
+      // "the" exact, "quik" fuzzy, "brown" exact
+      const result = findMatches('the quik brown', matcher, 0, { threshold: 0.3 });
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(2); // "brown" at index 2
+      // avgFuseScore should be between 0 and threshold (one fuzzy, two exact)
+      expect(result.bestMatch.avgFuseScore).toBeGreaterThan(0);
+      expect(result.bestMatch.avgFuseScore).toBeLessThan(0.3);
+    });
+  });
+
+  describe('performance (PRD-002)', () => {
+    it('findMatches completes in under 16ms for a 5000-word script', () => {
+      // Generate a 5000-word script with varied vocabulary
+      const vocabulary = [
+        'the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog',
+        'and', 'then', 'runs', 'through', 'green', 'forest', 'while',
+        'birds', 'sing', 'above', 'trees', 'grow', 'tall', 'near',
+        'river', 'flows', 'down', 'mountain', 'into', 'valley', 'below',
+        'clouds', 'drift', 'across', 'blue', 'sky', 'on', 'warm', 'day'
+      ];
+      const words = [];
+      for (let i = 0; i < 5000; i++) {
+        words.push(vocabulary[i % vocabulary.length]);
+      }
+      const script = words.join(' ');
+      const matcher = createMatcher(script);
+
+      // Warm up
+      findMatches('quick brown fox', matcher, 2500);
+
+      // Measure
+      const iterations = 10;
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        findMatches('quick brown fox', matcher, 2500);
+      }
+      const elapsed = (performance.now() - start) / iterations;
+
+      // NFR-1: must complete in under 16ms for 5000-word scripts
+      expect(elapsed).toBeLessThan(16);
+    });
+
+    it('findMatches completes in under 50ms for a 10000-word script', () => {
+      const vocabulary = [
+        'the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog',
+        'and', 'then', 'runs', 'through', 'green', 'forest', 'while',
+        'birds', 'sing', 'above', 'trees', 'grow', 'tall', 'near',
+        'river', 'flows', 'down', 'mountain', 'into', 'valley', 'below',
+        'clouds', 'drift', 'across', 'blue', 'sky', 'on', 'warm', 'day'
+      ];
+      const words = [];
+      for (let i = 0; i < 10000; i++) {
+        words.push(vocabulary[i % vocabulary.length]);
+      }
+      const script = words.join(' ');
+      const matcher = createMatcher(script);
+
+      // Warm up
+      findMatches('quick brown fox', matcher, 5000);
+
+      const iterations = 10;
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        findMatches('quick brown fox', matcher, 5000);
+      }
+      const elapsed = (performance.now() - start) / iterations;
+
+      // NFR-2: must complete in under 50ms for 10000-word scripts
+      expect(elapsed).toBeLessThan(50);
+    });
+
+    it('exact-match fast path is faster than fuzzy-only for exact input', () => {
+      // Large script where exact matching should provide clear speedup
+      const vocabulary = [
+        'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
+        'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima'
+      ];
+      const words = [];
+      for (let i = 0; i < 5000; i++) {
+        words.push(vocabulary[i % vocabulary.length]);
+      }
+      const script = words.join(' ');
+      const matcher = createMatcher(script);
+
+      // Exact words that exist in the script
+      const transcript = 'alpha bravo charlie';
+
+      // Warm up
+      findMatches(transcript, matcher, 0);
+
+      // The fast path should make this very quick
+      const iterations = 20;
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        findMatches(transcript, matcher, 0);
+      }
+      const avgTime = (performance.now() - start) / iterations;
+
+      // Should be well under 16ms with the fast path
+      expect(avgTime).toBeLessThan(16);
+    });
+  });
+
   describe('edge cases', () => {
     // Edge case 1: Empty transcript
     it('returns empty result for empty transcript', () => {

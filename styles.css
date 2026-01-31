@@ -116,6 +116,11 @@ body {
     word-wrap: break-word;
 }
 
+/* Mirror mode for beam-splitter teleprompter setups */
+#teleprompter-container.mirrored {
+    transform: scaleX(-1);
+}
+
 /* Reading Marker - Left-facing carat positioned next to text */
 .reading-marker {
     position: fixed;
@@ -258,6 +263,13 @@ body {
 #voice-toggle.active {
     background: #9333ea;
     border-color: #a855f7;
+    color: white;
+}
+
+/* Mirror toggle active state */
+#mirror-btn.active {
+    background: #f59e0b;
+    border-color: #fbbf24;
     color: white;
 }
 
@@ -424,4 +436,119 @@ body {
 .debug-btn.success {
     background: #0a0;
     border-color: #0f0;
+}
+
+/* Voice error toast */
+.voice-error-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(220, 38, 38, 0.9);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 90vw;
+    text-align: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+
+.voice-error-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Safe area insets for notched devices (iPhone X+) */
+#teleprompter-container {
+    padding-left: max(2rem, env(safe-area-inset-left));
+    padding-right: max(2rem, env(safe-area-inset-right));
+}
+
+.controls-overlay {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+#listening-indicator {
+    top: max(20px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+}
+
+.tracking-indicator {
+    top: max(20px, env(safe-area-inset-top));
+    left: max(20px, env(safe-area-inset-left));
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+    /* Touch-friendly tap targets (minimum 44px per Apple HIG) */
+    .control-btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    /* Wrap controls on small screens */
+    .controls-row {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .control-group {
+        gap: 0.5rem;
+    }
+
+    .controls-overlay {
+        padding: 1rem;
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+
+    /* Reduce teleprompter text max-width to prevent horizontal overflow */
+    #teleprompter-text {
+        max-width: 100%;
+        padding: 0 0.5rem;
+    }
+
+    /* Editor view mobile adjustments */
+    #editor-view {
+        padding: 1rem;
+        padding-top: max(1rem, env(safe-area-inset-top));
+    }
+
+    #editor-view h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    #script-input {
+        height: 50vh;
+        padding: 1rem;
+    }
+
+    #start-button {
+        width: 100%;
+        max-width: 400px;
+    }
+
+    /* Adjust reading marker for narrower screens */
+    .reading-marker {
+        left: 0.25rem;
+    }
+
+    /* Move debug overlay to avoid overlap with listening indicator */
+    #debug-overlay {
+        top: auto;
+        bottom: 80px;
+        right: 10px;
+        max-width: 200px;
+        font-size: 11px;
+    }
 }
