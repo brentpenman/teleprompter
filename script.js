@@ -26,7 +26,8 @@ const { state, subscribe } = createState({
   isScrolling: false,
   voiceEnabled: false,      // Voice mode on/off
   voiceState: 'idle',       // 'idle' | 'listening' | 'error' | 'retrying'
-  highlightEnabled: true    // Show text highlighting
+  highlightEnabled: true,   // Show text highlighting
+  mirrorEnabled: false      // Mirror text for beam-splitter setups
 });
 
 // Voice recognition components
@@ -39,6 +40,10 @@ let matcher = null;           // WordMatcher result (stateless)
 let positionTracker = null;   // Stateful position
 let scrollController = null;  // Reactive scroll
 let highlighter = null;       // Kept from v1.0
+
+// Transcript throttling (PRD-002: 150ms minimum interval for interim transcripts)
+let lastTranscriptTime = 0;
+const TRANSCRIPT_THROTTLE_MS = 150;
 
 // Debug mode (off by default, toggled via Ctrl+Shift+D)
 let debugMode = false;
@@ -139,6 +144,7 @@ let voiceToggle;
 let listeningIndicator;
 let waveformCanvas;
 let highlightToggle;
+let mirrorBtn;
 let debugOverlay;
 let debugUpdateInterval = null;
 
@@ -360,6 +366,16 @@ function handleSpeechTranscript(text, isFinal) {
     return;
   }
 
+  // Throttle interim transcripts to reduce redundant matching (PRD-002)
+  if (!isFinal) {
+    const now = performance.now();
+    if (now - lastTranscriptTime < TRANSCRIPT_THROTTLE_MS) {
+      debugLog('[Speech] Throttled interim transcript');
+      return;
+    }
+    lastTranscriptTime = now;
+  }
+
   debugLog('[Speech]', isFinal ? 'FINAL:' : 'interim:', text);
 
   // Get current position from PositionTracker
@@ -421,25 +437,55 @@ function handleSpeechTranscript(text, isFinal) {
 
 // Voice mode controls
 async function enableVoiceMode() {
-  // Request microphone permission
-  try {
-    audioStream = await navigator.mediaDevices.getUserMedia({
+  const { isMobile } = SpeechRecognizer.getPlatform();
+
+  // Secure context check: getUserMedia requires HTTPS (or localhost)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showVoiceError('Voice mode requires a secure connection (HTTPS). Please access this site over HTTPS.');
+    return;
+  }
+
+  // Android: skip getUserMedia entirely — holding a MediaStream from getUserMedia
+  // blocks SpeechRecognition from accessing the mic on Android Chrome.
+  // The visualizer is non-essential; speech tracking is the priority.
+  const { isAndroid: isAndroidDevice } = SpeechRecognizer.getPlatform();
+
+  if (!isAndroidDevice) {
+    // Request microphone permission (also powers the audio visualizer)
+    const advancedConstraints = {
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true
       }
-    });
-  } catch (err) {
-    handleMicrophoneError(err);
-    return;
-  }
+    };
+    const simpleConstraints = { audio: true };
 
-  // Initialize visualizer with the stream
-  if (!audioVisualizer) {
-    audioVisualizer = new AudioVisualizer(waveformCanvas);
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia(
+        isMobile ? simpleConstraints : advancedConstraints
+      );
+    } catch (err) {
+      // Fallback: if advanced constraints failed on desktop, try simple constraints
+      if (!isMobile) {
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
+        } catch (fallbackErr) {
+          handleMicrophoneError(fallbackErr);
+          return;
+        }
+      } else {
+        handleMicrophoneError(err);
+        return;
+      }
+    }
+
+    // Initialize visualizer with the stream
+    if (!audioVisualizer) {
+      audioVisualizer = new AudioVisualizer(waveformCanvas);
+    }
+    audioVisualizer.start(audioStream);
   }
-  audioVisualizer.start(audioStream);
 
   // Initialize and start speech recognizer
   if (!speechRecognizer) {
@@ -509,11 +555,18 @@ function disableVoiceMode() {
 }
 
 function handleMicrophoneError(err) {
+  const { isIOS, isAndroid, isMobile } = SpeechRecognizer.getPlatform();
   let message = 'Unable to access microphone.';
 
   switch (err.name) {
     case 'NotAllowedError':
-      message = 'Microphone permission denied. Voice mode requires microphone access.';
+      if (isIOS) {
+        message = 'Microphone permission denied. Go to Settings > Safari > Microphone and allow access for this site.';
+      } else if (isAndroid) {
+        message = 'Microphone permission denied. Check both Chrome site permissions (tap the lock icon) and Android settings (Settings > Apps > Chrome > Permissions > Microphone).';
+      } else {
+        message = 'Microphone permission denied. Voice mode requires microphone access.';
+      }
       voiceToggle.disabled = true;
       voiceToggle.title = message;
       break;
@@ -521,7 +574,14 @@ function handleMicrophoneError(err) {
       message = 'No microphone detected.';
       break;
     case 'NotReadableError':
-      message = 'Microphone is in use by another application.';
+      if (isMobile) {
+        message = 'Microphone is unavailable. Close other apps that may be using it and try again.';
+      } else {
+        message = 'Microphone is in use by another application.';
+      }
+      break;
+    case 'OverconstrainedError':
+      message = 'Microphone does not support the requested audio settings.';
       break;
   }
 
@@ -530,8 +590,20 @@ function handleMicrophoneError(err) {
 }
 
 function showVoiceError(message) {
-  // Brief error display using alert as simple fallback
-  alert(message);
+  // Show a toast-style error instead of alert (better on mobile)
+  const toast = document.createElement('div');
+  toast.className = 'voice-error-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  // Force reflow then add visible class for animation
+  toast.offsetHeight;
+  toast.classList.add('visible');
+
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
 }
 
 function updateDebugOverlay() {
@@ -693,6 +765,19 @@ async function initMatchingSystem(scriptText) {
   debugLog('[Pipeline] Initialized with', matcher.scriptWords.length, 'words');
 }
 
+// Mirror toggle function
+function toggleMirror() {
+  state.mirrorEnabled = !state.mirrorEnabled;
+  teleprompterContainer.classList.toggle('mirrored', state.mirrorEnabled);
+  updateMirrorButton();
+}
+
+function updateMirrorButton() {
+  if (mirrorBtn) {
+    mirrorBtn.classList.toggle('active', state.mirrorEnabled);
+  }
+}
+
 // Highlight toggle function
 function toggleHighlight() {
   state.highlightEnabled = !state.highlightEnabled;
@@ -715,7 +800,8 @@ function saveSettings() {
     scrollSpeed: state.scrollSpeed,
     fontSize: state.fontSize,
     voiceEnabled: state.voiceEnabled,
-    highlightEnabled: state.highlightEnabled
+    highlightEnabled: state.highlightEnabled,
+    mirrorEnabled: state.mirrorEnabled
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
@@ -728,6 +814,7 @@ function loadSettings() {
       state.scrollSpeed = settings.scrollSpeed ?? 50;
       state.fontSize = settings.fontSize ?? 48;
       state.highlightEnabled = settings.highlightEnabled ?? true;
+      state.mirrorEnabled = settings.mirrorEnabled ?? false;
       // Note: voiceEnabled is NOT restored to state here
       // It's restored when entering teleprompter mode via switchMode
     }
@@ -783,6 +870,9 @@ function switchMode(newMode) {
       console.error('[Matching] Init failed:', err);
     });
 
+    // Apply mirror mode if enabled
+    teleprompterContainer.classList.toggle('mirrored', state.mirrorEnabled);
+
     // Show controls briefly
     showControls();
 
@@ -835,7 +925,7 @@ subscribe((property, value) => {
   }
 
   // Auto-save settings
-  if (['scrollSpeed', 'fontSize', 'voiceEnabled', 'highlightEnabled'].includes(property)) {
+  if (['scrollSpeed', 'fontSize', 'voiceEnabled', 'highlightEnabled', 'mirrorEnabled'].includes(property)) {
     saveSettings();
   }
 });
@@ -865,6 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
   listeningIndicator = document.getElementById('listening-indicator');
   waveformCanvas = document.getElementById('waveform-canvas');
   highlightToggle = document.getElementById('highlight-toggle');
+  mirrorBtn = document.getElementById('mirror-btn');
   debugOverlay = document.getElementById('debug-overlay');
 
   // Check browser support for speech recognition
@@ -877,6 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSpeedDisplay();
   updateSizeDisplay();
   updateHighlightButton();
+  updateMirrorButton();
 
   // Initialize default script if textarea is empty
   if (!scriptInput.value) {
@@ -920,6 +1012,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Highlight toggle
   if (highlightToggle) {
     highlightToggle.addEventListener('click', toggleHighlight);
+  }
+
+  // Mirror toggle
+  if (mirrorBtn) {
+    mirrorBtn.addEventListener('click', toggleMirror);
   }
 
   // Debug overlay export button
@@ -987,6 +1084,29 @@ document.addEventListener('fullscreenchange', () => {
   updateFullscreenButton();
 });
 
+// Visibility change handler — pause/resume voice mode when app is backgrounded/foregrounded
+document.addEventListener('visibilitychange', () => {
+  if (!state.voiceEnabled) return;
+
+  if (document.hidden) {
+    // Page hidden: pause recognition and visualizer to avoid silent failures
+    if (speechRecognizer) {
+      speechRecognizer.pause();
+    }
+    if (audioVisualizer) {
+      audioVisualizer.stop();
+    }
+  } else {
+    // Page visible again: resume recognition and visualizer
+    if (speechRecognizer) {
+      speechRecognizer.resume();
+    }
+    if (audioVisualizer && audioStream) {
+      audioVisualizer.start(audioStream);
+    }
+  }
+});
+
 // Mouse move and touch handlers for auto-hide controls
 document.addEventListener('mousemove', () => {
   if (state.mode !== 'teleprompter') return;
@@ -1044,6 +1164,10 @@ document.addEventListener('keydown', (e) => {
       break;
     case 'KeyF':
       toggleFullscreen();
+      showControls();
+      break;
+    case 'KeyM':
+      toggleMirror();
       showControls();
       break;
     case 'Escape':

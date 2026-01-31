@@ -11,6 +11,11 @@
 // Browser support check at module load time
 const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+// Mobile platform detection
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isAndroid = /Android/.test(navigator.userAgent);
+const isMobile = isIOS || isAndroid;
+
 /**
  * SpeechRecognizer class with static isSupported method
  *
@@ -44,6 +49,14 @@ class SpeechRecognizer {
   static isSupported() {
     return !!SpeechRecognitionAPI;
   }
+
+  /**
+   * Get platform detection info
+   * @returns {{ isIOS: boolean, isAndroid: boolean, isMobile: boolean }}
+   */
+  static getPlatform() {
+    return { isIOS, isAndroid, isMobile };
+  }
   /**
    * Create a SpeechRecognizer instance
    * @param {Object} options - Configuration options
@@ -60,8 +73,14 @@ class SpeechRecognizer {
     this._options = options;
     this._recognition = new SpeechRecognitionAPI();
 
+    // Platform flags
+    this._isIOS = isIOS;
+    this._isAndroid = isAndroid;
+    this._isMobile = isMobile;
+
     // Configure recognition
-    this._recognition.continuous = true;
+    // iOS Safari: continuous mode is unreliable — we simulate it by restarting after each result
+    this._recognition.continuous = !this._isIOS;
     this._recognition.interimResults = true;
     this._recognition.lang = options.lang || 'en-US';
     this._recognition.maxAlternatives = 1;
@@ -72,6 +91,7 @@ class SpeechRecognizer {
     this._retryTimeout = null;
     this._safetyTimeout = null;
     this._lastOnerrorTime = 0;
+    this._isPaused = false; // For visibility change handling
 
     // Bind event handlers
     this._setupEventHandlers();
@@ -138,6 +158,12 @@ class SpeechRecognizer {
       const isFinal = result.isFinal;
 
       this._options.onTranscript?.(transcript, isFinal);
+
+      // iOS: simulate continuous mode by restarting after each final result
+      // Since continuous=false on iOS, recognition stops after each utterance
+      if (this._isIOS && isFinal && this._shouldBeListening) {
+        this._scheduleRestart();
+      }
     };
   }
 
@@ -147,8 +173,10 @@ class SpeechRecognizer {
    */
   _scheduleRestart() {
     // Calculate delay with exponential backoff
-    // 100ms, 200ms, 400ms, 800ms, 1600ms, 3200ms, 5000ms (capped)
-    const delay = Math.min(100 * Math.pow(2, this._retryCount), 5000);
+    // Desktop: 100ms, 200ms, 400ms, ... capped at 5000ms
+    // iOS: 500ms minimum to avoid Safari rate-limiting rapid SpeechRecognition restarts
+    const minDelay = this._isIOS ? 500 : 100;
+    const delay = Math.min(minDelay * Math.pow(2, this._retryCount), 5000);
     this._retryCount++;
 
     this._clearRetryTimeout();
@@ -239,10 +267,54 @@ class SpeechRecognizer {
   }
 
   /**
+   * Pause recognition (e.g., when page is hidden)
+   * Preserves the intent to listen so resume() can restart
+   */
+  pause() {
+    if (!this._shouldBeListening) return;
+
+    this._isPaused = true;
+    this._clearTimeouts();
+
+    try {
+      this._recognition.stop();
+    } catch (e) {
+      // Ignore errors from stopping when not started
+    }
+
+    this._options.onStateChange?.('idle');
+  }
+
+  /**
+   * Resume recognition after a pause (e.g., when page becomes visible again)
+   */
+  resume() {
+    if (!this._isPaused) return;
+
+    this._isPaused = false;
+    this._retryCount = 0;
+
+    try {
+      this._recognition.start();
+    } catch (e) {
+      console.warn('Recognition resume failed:', e.message);
+      this._scheduleRestart();
+    }
+  }
+
+  /**
    * Check if currently listening
    * @returns {boolean} True if recognition is active or retrying
    */
   isListening() {
     return this._shouldBeListening;
+  }
+
+  /**
+   * Check if recognition is paused (page hidden)
+   * @returns {boolean} True if paused via visibility change
+   */
+  isPaused() {
+    return this._isPaused;
   }
 }
