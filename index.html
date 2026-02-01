@@ -8,11 +8,12 @@
     <script type="importmap">
     {
         "imports": {
-            "fuse.js": "https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/dist/fuse.mjs",
-            "vosk-browser": "./node_modules/vosk-browser/dist/vosk.js"
+            "fuse.js": "https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/dist/fuse.mjs"
         }
     }
     </script>
+    <!-- Load vosk-browser as global (UMD bundle doesn't work as ES module) -->
+    <script src="./node_modules/vosk-browser/dist/vosk.js"></script>
     <script type="module" src="script.js"></script>
 </head>
 <body>

@@ -33,7 +33,9 @@
  * await recognizer.stop();
  */
 
-import * as Vosk from 'vosk-browser';
+// vosk-browser is loaded as a global UMD bundle (see index.html)
+// Access via window.Vosk
+const Vosk = window.Vosk;
 
 /**
  * VoskRecognizer class with interface matching SpeechRecognizer
