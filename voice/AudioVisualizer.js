@@ -188,3 +188,5 @@ class AudioVisualizer {
     // Opacity will transition smoothly in draw()
   }
 }
+
+export default AudioVisualizer;
