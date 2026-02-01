@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 9 of 11 (Model Loading Infrastructure)
-Plan: 1 of 4
+Plan: 3 of 4
 Status: In progress
-Last activity: 2026-02-01 - Completed 09-01-PLAN.md (Server Cross-Origin Isolation)
+Last activity: 2026-02-01 - Completed 09-03-PLAN.md (Download Infrastructure)
 
-Progress: [████████░░] 77% (17/22 plans complete)
+Progress: [████████░░] 82% (18/22 plans complete)
 
 ## Performance Metrics
 
@@ -29,7 +29,7 @@ Progress: [████████░░] 77% (17/22 plans complete)
 |-------|-------|-------|----------|
 | v1.0 (1-4) | 13 | - | - |
 | v1.1 (5-8) | 8 | - | - |
-| v1.2 (9-11) | 1 of ~12 | 1min 14sec | 74sec |
+| v1.2 (9-11) | 3 of ~12 | ~9min | ~3min/plan |
 
 **Recent Trend:**
 - v1.0 and v1.1 shipped same day (2026-01-24)
@@ -56,6 +56,10 @@ Recent decisions affecting v1.2 work:
 - 09-02: Do NOT index binary data field (40MB) to avoid performance degradation
 - 09-02: 10% safety buffer for storage quota checks (compression imprecision)
 - 09-02: Optimistic fallback for browsers without StorageManager API
+- 09-03: Use fetch ReadableStream for download progress tracking (native API)
+- 09-03: Cap progress percentage at 100% (handles Content-Encoding compression)
+- 09-03: Web Crypto API for SHA-256 validation (no streaming, 40MB in memory acceptable)
+- 09-03: Array.from() hex conversion (Uint8Array.toHex() not yet available)
 
 ### Pending Todos
 
@@ -79,9 +83,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 17:36 UTC
-Stopped at: Completed 09-01-PLAN.md (Server Cross-Origin Isolation)
+Last session: 2026-02-01 17:37 UTC
+Stopped at: Completed 09-03-PLAN.md (Download Infrastructure)
 Resume file: None - ready to continue Phase 9
 
 ---
-*Updated: 2026-02-01 after 09-01 completion*
+*Updated: 2026-02-01 after 09-03 completion*
