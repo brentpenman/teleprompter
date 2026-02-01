@@ -108,11 +108,13 @@ Plans:
   3. App validates model integrity using SHA-256 hash before caching (prevents corrupted models)
   4. App checks storage quota before downloading and shows clear error when quota exceeded
   5. App serves with COOP/COEP headers over HTTPS (enables SharedArrayBuffer for Vosk WASM)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md — Server cross-origin isolation (COOP/COEP headers + verification utility)
+- [ ] 09-02-PLAN.md — Storage infrastructure (IndexedDB cache + quota management)
+- [ ] 09-03-PLAN.md — Download infrastructure (progress tracking + SHA-256 validation + config)
+- [ ] 09-04-PLAN.md — Model loading orchestration (ModelLoader + end-to-end verification)
 
 ### Phase 10: VoskRecognizer Adapter
 **Goal**: VoskRecognizer class that implements exact same interface as SpeechRecognizer, enabling zero changes to downstream components
@@ -163,7 +165,7 @@ Phases execute in numeric order: 9 -> 10 -> 11
 | 6. PositionTracker | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 7. ScrollController | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 8. Integration | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 9. Model Loading | v1.2 | 0/TBD | Not started | - |
+| 9. Model Loading | v1.2 | 0/4 | Not started | - |
 | 10. VoskRecognizer | v1.2 | 0/TBD | Not started | - |
 | 11. Engine Selection | v1.2 | 0/TBD | Not started | - |
 
