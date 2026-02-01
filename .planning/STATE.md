@@ -84,6 +84,12 @@ Recent decisions affecting v1.2 work:
 
 None yet.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | Engine label inline and model loading indicator | 2026-02-01 | 3114770 | [001-engine-label-inline-and-model-loading-in](./quick/001-engine-label-inline-and-model-loading-in/) |
+
 ### Blockers/Concerns
 
 **For Phase 9:**
