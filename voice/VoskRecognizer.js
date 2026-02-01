@@ -1,15 +1,36 @@
 /**
  * VoskRecognizer - Vosk offline speech recognition adapter
  *
- * Provides identical interface to SpeechRecognizer but uses vosk-browser
- * for offline, continuous speech recognition. This enables drop-in replacement
- * without changing downstream components (WordMatcher, PositionTracker, etc.).
+ * Implements identical interface to SpeechRecognizer, enabling drop-in replacement
+ * of Web Speech API with Vosk offline recognition.
  *
  * Key differences from SpeechRecognizer:
  * - Requires model to be loaded via loadModel() before start()
- * - No auto-restart logic (Vosk runs continuously, no 60s timeout)
- * - No retry/backoff logic (Vosk is offline, no network errors)
- * - Uses deprecated ScriptProcessorNode (AudioWorklet migration deferred to v2)
+ * - No auto-restart logic (Vosk runs continuously)
+ * - No retry/backoff (offline, no network errors)
+ * - Requires cross-origin isolation (SharedArrayBuffer for WASM)
+ * - Supports getAudioContext() for AudioVisualizer integration
+ *
+ * @example
+ * if (!VoskRecognizer.isSupported()) {
+ *   console.log('Vosk not supported (requires SharedArrayBuffer)');
+ *   return;
+ * }
+ *
+ * const recognizer = new VoskRecognizer({
+ *   onTranscript: (text, isFinal) => console.log(text, isFinal),
+ *   onError: (errorType, isFatal) => console.error(errorType, isFatal),
+ *   onStateChange: (state) => console.log('State:', state)
+ * });
+ *
+ * // Load model (from ModelLoader)
+ * await recognizer.loadModel(modelArrayBuffer);
+ *
+ * // Start recognition
+ * await recognizer.start();
+ *
+ * // ... later
+ * await recognizer.stop();
  */
 
 import * as Vosk from 'vosk-browser';
@@ -97,9 +118,10 @@ class VoskRecognizer {
 
   /**
    * Load Vosk model from ArrayBuffer
-   * Must be called before start()
-   * @param {ArrayBuffer} modelArrayBuffer - Model data from Phase 9 ModelLoader
+   * Must be called before start(). Model creation spawns Web Worker (~1-2s).
+   * @param {ArrayBuffer} modelArrayBuffer - Vosk model binary data
    * @returns {Promise<void>}
+   * @throws {Error} If model creation fails
    */
   async loadModel(modelArrayBuffer) {
     // Create Vosk model (spawns Web Worker)
@@ -108,8 +130,10 @@ class VoskRecognizer {
 
   /**
    * Start speech recognition
-   * Note: This may trigger browser's mic permission prompt if not already granted
-   * @throws {Error} If model not loaded via loadModel()
+   * Triggers browser's mic permission prompt if not already granted.
+   * @returns {Promise<void>}
+   * @throws {Error} If model not loaded (call loadModel() first)
+   * @throws {DOMException} If microphone permission denied (NotAllowedError)
    */
   async start() {
     // Check model loaded
@@ -163,6 +187,8 @@ class VoskRecognizer {
       this._source = this._audioContext.createMediaStreamSource(this._stream);
 
       // ScriptProcessor for audio processing (deprecated but required by vosk-browser)
+      // Note: ScriptProcessor is deprecated but still functional
+      // vosk-browser doesn't support AudioWorklet yet (migration planned for v2)
       // Buffer size 4096 provides good balance for <500ms latency
       this._processor = this._audioContext.createScriptProcessor(4096, 1, 1);
 
@@ -196,6 +222,7 @@ class VoskRecognizer {
   /**
    * Stop speech recognition
    * Cleanly terminates all resources and frees WASM memory
+   * @returns {Promise<void>}
    */
   async stop() {
     this._shouldBeListening = false;
@@ -237,6 +264,7 @@ class VoskRecognizer {
   /**
    * Pause recognition (e.g., when page is hidden)
    * Preserves the intent to listen so resume() can restart
+   * @returns {void}
    */
   pause() {
     if (!this._shouldBeListening) return;
@@ -253,6 +281,7 @@ class VoskRecognizer {
 
   /**
    * Resume recognition after a pause (e.g., when page becomes visible again)
+   * @returns {void}
    */
   resume() {
     if (!this._isPaused) return;
