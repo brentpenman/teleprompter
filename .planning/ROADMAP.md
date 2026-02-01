@@ -129,9 +129,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — TDD: VoskRecognizer interface compatibility (class structure, static methods, lifecycle)
-- [ ] 10-02-PLAN.md — Audio pipeline (getUserMedia, AudioContext, ScriptProcessor, WASM cleanup)
-- [ ] 10-03-PLAN.md — Event mapping and integration (Vosk events -> callbacks, AudioVisualizer support)
+- [x] 10-01-PLAN.md — TDD: VoskRecognizer interface compatibility (class structure, static methods, lifecycle)
+- [x] 10-02-PLAN.md — Audio pipeline (getUserMedia, AudioContext, ScriptProcessor, WASM cleanup)
+- [x] 10-03-PLAN.md — Event mapping and integration (Vosk events -> callbacks, AudioVisualizer support)
 
 ### Phase 11: Engine Selection & Polish
 **Goal**: User can choose recognition engine with intelligent fallback, and voice mode works silently across all target platforms
@@ -167,7 +167,7 @@ Phases execute in numeric order: 9 -> 10 -> 11
 | 7. ScrollController | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 8. Integration | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 9. Model Loading | v1.2 | 4/4 | Complete | 2026-02-01 |
-| 10. VoskRecognizer | v1.2 | 0/3 | Not started | - |
+| 10. VoskRecognizer | v1.2 | 3/3 | Complete | 2026-02-01 |
 | 11. Engine Selection | v1.2 | 0/TBD | Not started | - |
 
 ---

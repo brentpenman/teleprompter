@@ -20,16 +20,16 @@ Requirements for Vosk offline speech recognition integration. Each maps to roadm
 
 ### VoskRecognizer Implementation
 
-- [ ] **VOSK-01**: VoskRecognizer class implements same interface as SpeechRecognizer (start, stop, pause, resume methods)
-- [ ] **VOSK-02**: VoskRecognizer emits same events as SpeechRecognizer (onTranscript, onError, onStateChange)
-- [ ] **VOSK-03**: VoskRecognizer provides continuous recognition without manual restarts
-- [ ] **VOSK-04**: VoskRecognizer emits interim results during speech (isFinal: false)
-- [ ] **VOSK-05**: VoskRecognizer emits final results when utterance complete (isFinal: true)
-- [ ] **VOSK-06**: VoskRecognizer captures audio via getUserMedia API
-- [ ] **VOSK-07**: VoskRecognizer properly cleans up resources on stop (.free() for WASM)
-- [ ] **VOSK-08**: VoskRecognizer handles microphone permission errors gracefully
-- [ ] **VOSK-09**: VoskRecognizer achieves <500ms latency from speech to transcript
-- [ ] **VOSK-10**: VoskRecognizer maintains stable memory usage over 60+ minutes
+- [x] **VOSK-01**: VoskRecognizer class implements same interface as SpeechRecognizer (start, stop, pause, resume methods)
+- [x] **VOSK-02**: VoskRecognizer emits same events as SpeechRecognizer (onTranscript, onError, onStateChange)
+- [x] **VOSK-03**: VoskRecognizer provides continuous recognition without manual restarts
+- [x] **VOSK-04**: VoskRecognizer emits interim results during speech (isFinal: false)
+- [x] **VOSK-05**: VoskRecognizer emits final results when utterance complete (isFinal: true)
+- [x] **VOSK-06**: VoskRecognizer captures audio via getUserMedia API
+- [x] **VOSK-07**: VoskRecognizer properly cleans up resources on stop (.free() for WASM)
+- [x] **VOSK-08**: VoskRecognizer handles microphone permission errors gracefully
+- [x] **VOSK-09**: VoskRecognizer achieves <500ms latency from speech to transcript
+- [x] **VOSK-10**: VoskRecognizer maintains stable memory usage over 60+ minutes
 
 ### Engine Selection & UI
 
@@ -45,8 +45,8 @@ Requirements for Vosk offline speech recognition integration. Each maps to roadm
 
 ### Integration & Compatibility
 
-- [ ] **INTEG-01**: Existing components work unchanged with VoskRecognizer (WordMatcher, PositionTracker, ScrollController)
-- [ ] **INTEG-02**: AudioVisualizer works with both Vosk and Web Speech API
+- [x] **INTEG-01**: Existing components work unchanged with VoskRecognizer (WordMatcher, PositionTracker, ScrollController)
+- [x] **INTEG-02**: AudioVisualizer works with both Vosk and Web Speech API
 - [ ] **INTEG-03**: App falls back to Web Speech API when Vosk unavailable
 - [ ] **INTEG-04**: App falls back to Web Speech API when Vosk initialization fails
 - [ ] **INTEG-05**: Switching between engines preserves app state (script content, position)
