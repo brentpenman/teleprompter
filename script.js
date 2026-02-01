@@ -4,6 +4,13 @@ import { PositionTracker } from './matching/PositionTracker.js';
 import { ScrollController } from './matching/ScrollController.js';
 import { Highlighter } from './matching/Highlighter.js';
 
+// Settings and engine selection
+import SettingsManager from './settings/SettingsManager.js';
+import DeviceCapability from './settings/DeviceCapability.js';
+import RecognizerFactory from './voice/recognizerFactory.js';
+import SettingsPanel from './ui/SettingsPanel.js';
+import LoadingStates from './ui/LoadingStates.js';
+
 // State management using Proxy pattern
 const createState = (initialState) => {
   let listeners = [];
@@ -30,10 +37,14 @@ const { state, subscribe } = createState({
   mirrorEnabled: false      // Mirror text for beam-splitter setups
 });
 
+// Settings management
+let settingsManager = null;
+
 // Voice recognition components
 let speechRecognizer = null;
 let audioVisualizer = null;
 let audioStream = null;
+let activeEngine = null;  // Track which engine is currently active
 
 // v1.1 pipeline component instances
 let matcher = null;           // WordMatcher result (stateless)
@@ -437,7 +448,7 @@ function handleSpeechTranscript(text, isFinal) {
 
 // Voice mode controls
 async function enableVoiceMode() {
-  const { isMobile } = SpeechRecognizer.getPlatform();
+  const { isMobile, isAndroid: isAndroidDevice } = SpeechRecognizer.getPlatform();
 
   // Secure context check: getUserMedia requires HTTPS (or localhost)
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -445,82 +456,141 @@ async function enableVoiceMode() {
     return;
   }
 
-  // Android: skip getUserMedia entirely — holding a MediaStream from getUserMedia
-  // blocks SpeechRecognition from accessing the mic on Android Chrome.
-  // The visualizer is non-essential; speech tracking is the priority.
-  const { isAndroid: isAndroidDevice } = SpeechRecognizer.getPlatform();
+  // Set initializing state
+  state.voiceState = 'initializing';
 
-  if (!isAndroidDevice) {
-    // Request microphone permission (also powers the audio visualizer)
-    const advancedConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
-    };
-    const simpleConstraints = { audio: true };
+  // Get engine preference from settings
+  const settings = settingsManager.load();
+  const enginePreference = settings.recognitionEngine || 'auto';
 
-    try {
-      audioStream = await navigator.mediaDevices.getUserMedia(
-        isMobile ? simpleConstraints : advancedConstraints
-      );
-    } catch (err) {
-      // Fallback: if advanced constraints failed on desktop, try simple constraints
-      if (!isMobile) {
-        try {
-          audioStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
-        } catch (fallbackErr) {
-          handleMicrophoneError(fallbackErr);
-          return;
-        }
-      } else {
-        handleMicrophoneError(err);
-        return;
-      }
-    }
-
-    // Initialize visualizer with the stream
-    if (!audioVisualizer) {
-      audioVisualizer = new AudioVisualizer(waveformCanvas);
-    }
-    audioVisualizer.start(audioStream);
-  }
-
-  // Initialize and start speech recognizer
-  if (!speechRecognizer) {
-    speechRecognizer = new SpeechRecognizer({
-      onTranscript: handleSpeechTranscript,
-      onError: (errorType, isFatal) => {
-        console.error(`[Voice] Error: ${errorType} (fatal: ${isFatal})`);
-        if (isFatal) {
-          disableVoiceMode();
-          showVoiceError(`Voice recognition error: ${errorType}`);
+  try {
+    // Create recognizer via factory with progress tracking
+    const engineIndicator = document.getElementById('engine-indicator');
+    const { recognizer, engineUsed, fallbackReason } = await RecognizerFactory.create(
+      enginePreference,
+      {
+        onTranscript: handleSpeechTranscript,
+        onError: (errorType, isFatal) => {
+          console.error(`[Voice] Error: ${errorType} (fatal: ${isFatal})`);
+          if (isFatal) {
+            disableVoiceMode();
+            showVoiceError(`Voice recognition error: ${errorType}`);
+          }
+        },
+        onStateChange: (newState) => {
+          state.voiceState = newState;
+          updateVoiceIndicator();
         }
       },
-      onStateChange: (newState) => {
-        state.voiceState = newState;
-        updateVoiceIndicator();
+      (progress) => {
+        // Show download progress in listening indicator
+        LoadingStates.showDownloadProgress(listeningIndicator, progress);
       }
+    );
+
+    speechRecognizer = recognizer;
+    activeEngine = engineUsed;
+
+    // Handle fallback (ENGINE-09: Clear error UI when Vosk fails to initialize)
+    if (fallbackReason) {
+      // Check if fallbackReason indicates Vosk initialization failure
+      if (fallbackReason.includes('Vosk') || fallbackReason.includes('initialization') || fallbackReason.includes('failed')) {
+        LoadingStates.showError(
+          listeningIndicator,
+          `Vosk initialization failed: ${fallbackReason}. Using Web Speech API instead.`,
+          false
+        );
+        // Show message for 3 seconds then clear
+        setTimeout(() => {
+          listeningIndicator.innerHTML = '';
+        }, 3000);
+      }
+      console.warn('Engine fallback:', fallbackReason);
+    }
+
+    // Update engine indicator
+    LoadingStates.showEngineIndicator(engineIndicator, engineUsed, false, 0, Date.now());
+
+    // Android: skip getUserMedia for Web Speech API — holding a MediaStream from getUserMedia
+    // blocks SpeechRecognition from accessing the mic on Android Chrome.
+    // The visualizer is non-essential; speech tracking is the priority.
+    if (!isAndroidDevice || engineUsed === 'vosk') {
+      // Request microphone permission (also powers the audio visualizer)
+      const advancedConstraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      };
+      const simpleConstraints = { audio: true };
+
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia(
+          isMobile ? simpleConstraints : advancedConstraints
+        );
+      } catch (err) {
+        // Fallback: if advanced constraints failed on desktop, try simple constraints
+        if (!isMobile) {
+          try {
+            audioStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
+          } catch (fallbackErr) {
+            handleMicrophoneError(fallbackErr);
+            return;
+          }
+        } else {
+          handleMicrophoneError(err);
+          return;
+        }
+      }
+
+      // Initialize visualizer with the stream
+      if (!audioVisualizer) {
+        audioVisualizer = new AudioVisualizer(waveformCanvas);
+      }
+      audioVisualizer.start(audioStream);
+    }
+
+    // Start recognizer
+    await speechRecognizer.start();
+
+    // Start scroll controller
+    if (scrollController) {
+      scrollController.start();
+    }
+
+    // Update UI
+    state.voiceEnabled = true;
+    state.voiceState = 'listening';
+    voiceToggle.classList.add('active');
+    listeningIndicator.classList.remove('hidden');
+    playPauseBtn.disabled = true;
+
+    // Clear loading state from listening indicator
+    if (!isAndroidDevice || engineUsed === 'vosk') {
+      listeningIndicator.innerHTML = '<canvas id="waveform-canvas" width="80" height="40"></canvas>';
+      // Reinitialize visualizer with new canvas
+      if (audioVisualizer && audioStream) {
+        const newCanvas = document.getElementById('waveform-canvas');
+        audioVisualizer = new AudioVisualizer(newCanvas);
+        audioVisualizer.start(audioStream);
+      }
+    } else {
+      listeningIndicator.innerHTML = '';
+    }
+
+    // Start debug updates if debug mode is enabled (keyboard shortcut controls visibility)
+    if (debugMode) {
+      startDebugUpdates();
+    }
+
+  } catch (error) {
+    console.error('[Voice] Failed to initialize voice mode:', error);
+    state.voiceState = 'error';
+    LoadingStates.showError(listeningIndicator, error.message, true, () => {
+      listeningIndicator.innerHTML = '';
+      enableVoiceMode();
     });
-  }
-
-  speechRecognizer.start();
-
-  // Start scroll controller
-  if (scrollController) {
-    scrollController.start();
-  }
-
-  // Update UI
-  state.voiceEnabled = true;
-  voiceToggle.classList.add('active');
-  listeningIndicator.classList.remove('hidden');
-  playPauseBtn.disabled = true;
-
-  // Start debug updates if debug mode is enabled (keyboard shortcut controls visibility)
-  if (debugMode) {
-    startDebugUpdates();
   }
 }
 
@@ -717,14 +787,6 @@ function updateVoiceIndicator() {
     case 'idle':
       // No change needed, indicator hidden when idle
       break;
-  }
-}
-
-function toggleVoiceMode() {
-  if (state.voiceEnabled) {
-    disableVoiceMode();
-  } else {
-    enableVoiceMode();
   }
 }
 
@@ -932,7 +994,17 @@ subscribe((property, value) => {
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-  // Load settings from localStorage
+  // Initialize settings manager (ENGINE-02: Load settings on page init for persistence)
+  settingsManager = new SettingsManager();
+  const settings = settingsManager.load();
+
+  // Apply settings to state
+  state.fontSize = settings.fontSize;
+  state.scrollSpeed = settings.scrollSpeed;
+  state.highlightEnabled = settings.highlightEnabled;
+  state.mirrorEnabled = settings.mirrorEnabled;
+
+  // Load old settings from localStorage (backward compatibility)
   loadSettings();
 
   // Get DOM elements
@@ -1007,7 +1079,13 @@ document.addEventListener('DOMContentLoaded', () => {
   fullscreenBtn.addEventListener('click', toggleFullscreen);
 
   // Voice toggle
-  voiceToggle.addEventListener('click', toggleVoiceMode);
+  voiceToggle.addEventListener('click', async () => {
+    if (!state.voiceEnabled) {
+      await enableVoiceMode();
+    } else {
+      disableVoiceMode();
+    }
+  });
 
   // Highlight toggle
   if (highlightToggle) {
@@ -1049,6 +1127,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const readingMarker = document.querySelector('.reading-marker');
     if (readingMarker) {
       readingMarker.classList.toggle('hidden', !e.target.checked);
+    }
+  });
+
+  // Settings button
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      const overlay = document.getElementById('settings-overlay');
+      const container = document.getElementById('settings-container');
+
+      if (overlay && container) {
+        // Create and render settings panel
+        const panel = new SettingsPanel(settingsManager, DeviceCapability);
+        panel.render(container);
+
+        // Show overlay
+        overlay.classList.remove('hidden');
+      }
+    });
+  }
+
+  // Settings changed event (for immediate UI updates)
+  window.addEventListener('settings-changed', (e) => {
+    const { key, value } = e.detail;
+
+    if (key === 'highlightEnabled') {
+      state.highlightEnabled = value;
+      if (highlighter) {
+        highlighter.setEnabled(value);
+      }
+      updateHighlightButton();
+    } else if (key === 'mirrorEnabled') {
+      state.mirrorEnabled = value;
+      if (teleprompterContainer) {
+        teleprompterContainer.classList.toggle('mirrored', value);
+      }
+      updateMirrorButton();
     }
   });
 

@@ -37,6 +37,7 @@
         <!-- Visual feedback elements for voice tracking -->
         <div id="caret-line" class="caret-line"></div>
         <div id="tracking-indicator" class="tracking-indicator stopped">Stopped</div>
+        <div id="engine-indicator" class="engine-indicator hidden"></div>
         <div class="controls-overlay">
             <div class="controls-row">
                 <button id="exit-btn" class="control-btn">Exit</button>
@@ -60,6 +61,7 @@
                 <button id="mirror-btn" class="control-btn" title="Mirror text for beam-splitter (M)">Mirror</button>
                 <button id="voice-toggle" class="control-btn control-btn-voice" title="Enable voice mode">Voice</button>
                 <button id="highlight-toggle" class="control-btn active" title="Toggle text highlighting">Highlight</button>
+                <button id="settings-btn" class="control-btn" title="Settings">Settings</button>
             </div>
         </div>
         <div id="listening-indicator" class="hidden">
@@ -82,6 +84,11 @@
             </div>
             <button id="export-state-btn" class="debug-btn">Export State</button>
         </div>
+    </div>
+
+    <!-- Settings Overlay -->
+    <div id="settings-overlay" class="overlay hidden">
+        <div id="settings-container"></div>
     </div>
 </body>
 </html>
