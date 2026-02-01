@@ -4,6 +4,10 @@ import { PositionTracker } from './matching/PositionTracker.js';
 import { ScrollController } from './matching/ScrollController.js';
 import { Highlighter } from './matching/Highlighter.js';
 
+// Voice recognition
+import SpeechRecognizer from './voice/SpeechRecognizer.js';
+import AudioVisualizer from './voice/AudioVisualizer.js';
+
 // Settings and engine selection
 import SettingsManager from './settings/SettingsManager.js';
 import DeviceCapability from './settings/DeviceCapability.js';
