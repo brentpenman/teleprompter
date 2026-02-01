@@ -126,8 +126,18 @@ class VoskRecognizer {
    * @throws {Error} If model creation fails
    */
   async loadModel(modelArrayBuffer) {
-    // Create Vosk model (spawns Web Worker)
-    this._model = await Vosk.createModel(modelArrayBuffer);
+    // vosk-browser expects a URL, not an ArrayBuffer
+    // Convert ArrayBuffer to Blob URL that vosk-browser can fetch
+    const blob = new Blob([modelArrayBuffer], { type: 'application/zip' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    try {
+      // Create Vosk model (spawns Web Worker, downloads from blob URL)
+      this._model = await Vosk.createModel(blobUrl);
+    } finally {
+      // Clean up blob URL after model loaded
+      URL.revokeObjectURL(blobUrl);
+    }
   }
 
   /**
