@@ -1,315 +1,265 @@
-# Position-Tracking Rewrite Research Summary
+# Project Research Summary
 
-**Project:** Voice-Controlled Teleprompter v1.1 - Position-Tracking Rewrite
-**Domain:** Real-time speech-to-text alignment for voice-controlled scrolling
-**Researched:** 2026-01-24
-**Confidence:** HIGH
+**Project:** AI Voice-Controlled Teleprompter v1.2 — Vosk Offline Recognition
+**Domain:** Offline speech-to-text for browser-based teleprompter
+**Researched:** 2026-02-01
+**Confidence:** MEDIUM
 
 ## Executive Summary
 
-The v1.1 rewrite addresses fundamental architectural flaws in v1.0's position-tracking implementation. The core problem: v1.0 conflated matching (finding words), position management (deciding what's confirmed), and scroll control (displaying text) into tangled components with 15+ interdependent parameters. The result was "too sensitive AND not sensitive enough" - jumping ahead on repeated phrases while simultaneously failing to track natural reading.
+This research covers the integration of Vosk offline speech recognition to replace Web Speech API in an existing voice-controlled teleprompter. The primary goals are eliminating the Android notification beep and enabling true offline operation. The recommended approach is to use **vosk-browser v0.0.8** (despite being unmaintained) with the small English model (40MB), implementing an adapter pattern that makes Vosk a drop-in replacement for the existing SpeechRecognizer interface.
 
-The research reveals a clear path forward: implement a **distance-weighted scoring algorithm** combined with a **two-position model** (confirmed floor + candidate ceiling) within a **clean pipeline architecture** (WordMatcher → PositionTracker → ScrollController). This approach is grounded in established alignment algorithms (forced alignment, monotonic constraints) and validated by competitor analysis showing that professional systems (Autoscript Voice) use positional context as the primary disambiguation mechanism.
+The key architectural insight is that Vosk transforms the teleprompter from a simple client-side app into a **distributed system** requiring model distribution, WASM initialization, worker thread communication, and explicit resource cleanup. The most critical risks are: (1) model loading failures without quota management, (2) AudioWorklet memory leaks from improper cleanup, and (3) latency budget violations on constrained devices. Each has clear mitigation strategies involving quota checks, singleton recognizer patterns, and device-tier detection.
 
-The critical insight: position tracking is a *confirmation* problem, not a *prediction* problem. When you predict where the user will be, you inevitably get ahead of them. When you confirm where they are, you stay in sync. The rewrite eliminates speculative position updates, state machine complexity, and parameter explosion in favor of reactive scrolling that follows confirmed speech only.
+This is an **incremental enhancement** to a validated v1.0 product. The existing architecture (WordMatcher, PositionTracker, ScrollController) remains unchanged. The adapter pattern ensures zero downstream impact while unlocking beep-free Android operation and offline capability. Fallback to Web Speech API provides graceful degradation.
 
 ## Key Findings
 
-### Recommended Algorithm
+### Recommended Stack
 
-**Distance-Weighted Scoring** (from ALGORITHMS.md)
+The stack adds five components to the existing v1.0 architecture: **vosk-browser 0.0.8** (WebAssembly runtime), **vosk-model-small-en-us-0.15** (40MB model file), **IndexedDB caching** (browser native), **COOP/COEP headers** (for SharedArrayBuffer), and **HTTPS server** (headers added to existing setup).
 
-The core innovation: combine fuzzy match quality with positional proximity into a unified relevance score. This solves the "repeated phrases" problem that plagued v1.0 by making position intrinsic to match confidence rather than a post-processing filter.
+**Core technologies:**
+- **vosk-browser 0.0.8**: WebAssembly Vosk runtime — only mature browser package despite being unmaintained for 3 years; functional and used by production apps
+- **vosk-model-small-en-us-0.15**: 40MB English model — best balance of size/accuracy for teleprompter use case (10% WER acceptable with fuzzy matching)
+- **IndexedDB**: Model caching — browser native API, 40MB one-time download becomes instant on subsequent loads
+- **COOP/COEP headers**: Enable SharedArrayBuffer — required for Vosk WASM threading; simple server config addition
+- **ScriptProcessorNode**: Audio capture — deprecated but functional; AudioWorklet migration is future enhancement
 
-```javascript
-FinalScore = FuzzyScore * PositionalWeight
+**Critical warning:** vosk-browser still uses deprecated ScriptProcessorNode for audio processing. This works in all 2026 browsers but prints console warnings. Migration to AudioWorklet is tracked in GitHub issues #8/#9 but incomplete. Alternative library (Vosklet) exists but not on npm.
 
-Where:
-  FuzzyScore = 1 - (LevenshteinDistance / MaxLength)
-  PositionalWeight = 1 / (1 + |distance| * DecayFactor)
-```
-
-**Key parameters:**
-- `fuzzyThreshold: 0.7` - Minimum match quality to consider
-- `decayFactor: 0.1` - Distance penalty (15 words away = 40% weight reduction)
-- `searchRadius: 50` - How far to search (~20% of script)
-- `requireConsecutive: 2` - Minimum consecutive matches for confidence
-
-**Two-Position Model:**
-- `confirmedPosition` - Highest word index where user definitely has been (monotonic, never decreases)
-- `candidatePosition` - Where we think user currently is (can be speculative)
-- Scroll boundary: never exceed `confirmedPosition + buffer` (typically 3 words)
-
-This prevents the "getting ahead" problem by hard-limiting scroll position to confirmed speech regardless of candidate matches.
+**No new build tools or frameworks needed.** This is a pure JavaScript integration via npm package.
 
 ### Expected Features
 
+Research identified table stakes (users expect), differentiators (competitive advantage), and anti-features (commonly requested but problematic).
+
 **Must have (table stakes):**
-- Pause-and-hold - Stop scrolling on silence, hold position indefinitely
-- Resume on return - Automatic tracking when speech detected (no manual restart)
-- Fixed cue position - Next words always at configurable screen position (default: top 1/3)
-- Never scroll ahead - Cue position is hard limit, display never races past user
-- Speed adaptation - Scroll speed matches observed speaking pace
+- Continuous recognition — standard STT behavior, Vosk supports via acceptWaveform() loop
+- Interim/partial results — live feedback before final transcript, Vosk emits 'partialresult' events
+- Model loading with progress — 40MB download requires progress UI, IndexedDB caching for offline
+- Error recovery — graceful handling of model failures, fallback to Web Speech API
 
 **Should have (competitive advantage):**
-- Positional context awareness - Use current position to disambiguate repeated phrases
-- Skip confirmation - Require consecutive words before accepting large position jumps
-- Visual state feedback - Clear indication of tracking vs. holding vs. paused
-- Graceful off-script handling - Hold position during ad-libs, resume cleanly
+- Zero network after download — true offline, no beeps, no cloud (primary value proposition)
+- Beep-free on Android — silent operation without system sounds (eliminates main user pain point)
+- Privacy-first — audio never leaves device (automatic benefit)
+- Offline-first with fallback — use Vosk when available, Web Speech API as backup
 
-**Defer (nice to have):**
-- Word-level visual feedback - Underline matched words in real-time (like Speakflow)
-- Confidence visualization - Subtle indicator of match quality
-- Manual position override - Tap/scroll without breaking tracking
-- Backward navigation - Explicit user trigger only, not automatic
+**Defer (v2+):**
+- Multi-model support (small/large) — wait for user demand for higher accuracy
+- Vocabulary customization — complex to implement, unclear value for teleprompter
+- Multi-language models — 95% users are English, defer until international demand
 
 **Anti-features (avoid):**
-- Greedy forward matching without positional constraints
-- Binary match/no-match with no uncertainty handling
-- Aggressive timeouts requiring manual restart
-- Fixed scroll speed that doesn't adapt to pace
-- Symmetric forward/backward skip handling
+- Auto-download largest model — 2.3GB kills mobile data plans, overkill for use case
+- Real-time model updates — large downloads, defeats offline purpose
+- Multiple simultaneous models — memory explosion, browser crashes
+- Background model download — Service Worker complexity, user doesn't know when ready
 
 ### Architecture Approach
 
-The v1.1 architecture implements a **clean separation of concerns** via a pipeline where each component has a single responsibility:
+Vosk integrates via an **adapter pattern** where VoskRecognizer implements the exact same interface as the existing SpeechRecognizer class. This ensures zero changes to downstream components (WordMatcher, PositionTracker, ScrollController). The architecture introduces four new components that work alongside existing code.
 
 **Major components:**
+1. **VoskRecognizer** — Drop-in replacement for SpeechRecognizer, same callback API (onTranscript, onError, onStateChange), wraps Vosklet module, translates Vosk events
+2. **VoskModelLoader** — Model download with progress tracking, IndexedDB caching, version management, integrity validation
+3. **VoskAudioProcessor** — AudioWorklet processor for audio capture in 128-frame chunks, accumulates to buffer size Vosk expects (4096-8192 frames)
+4. **Ring Buffer** — Bridges AudioWorklet's 128-frame output to Vosk's preferred buffer size, prevents overflow, reduces function call overhead
 
-1. **WordMatcher** (stateless) - Pure matching function that searches for phrase matches within a position range and returns scored candidates. No knowledge of current position or history.
-
-2. **PositionTracker** (stateful core) - Maintains `confirmedPosition` as single source of truth. Receives match candidates, applies acceptance rules (proximity bias, skip limits, consecutive confirmation), updates confirmed position only when confident. Emits events on position changes.
-
-3. **ScrollController** (reactive display) - Listens for position confirmations, calculates scroll position to place confirmed position at caret, applies smooth animation. Never scrolls ahead of confirmed position boundary.
-
-**Data flow:**
+**Audio pipeline:**
 ```
-Speech Input → SpeechRecognizer → WordMatcher → PositionTracker → ScrollController → DOM scroll
+Microphone → getUserMedia → AudioContext → ScriptProcessor → Vosk acceptWaveform()
+  → 'result'/'partial-result' events → VoskRecognizer adapter
+  → onTranscript(text, isFinal) → WordMatcher (unchanged)
 ```
 
-**Integration with existing code:**
-- **Keep:** SpeechRecognizer, AudioVisualizer, Highlighter, textUtils, Fuse.js - all working well
-- **Replace:** TextMatcher → WordMatcher (make stateless), ScrollSync → PositionTracker + ScrollController (split concerns)
-- **Remove:** ConfidenceLevel.js (absorbed into PositionTracker), complex state machine, 15+ parameters
+**Integration strategy:** The adapter pattern means existing code is agnostic to which recognizer is used. AudioVisualizer connects to same MediaStream (no changes). UI layer toggles between recognizers based on browser support and user preference.
+
+**Key architectural decision:** Use vosk-browser over Vosklet because it works without SharedArrayBuffer in fallback mode (broader browser support), and the ScriptProcessor deprecation is a known quantity with no removal timeline.
 
 ### Critical Pitfalls
 
-Based on v1.0 failure analysis and domain research:
+Research identified 8 critical pitfalls with clear prevention strategies. Top 5 for roadmap planning:
 
-1. **Speculative position updates** - v1.0 updated position immediately on match, then tried to constrain scroll. Solution: Only update `confirmedPosition` on high-confidence matches; scroll never exceeds confirmed boundary.
+1. **Model loading without quota management** — 40MB download succeeds but IndexedDB storage fails with QuotaExceededError on low-storage devices. Prevention: Check quota before downloading, implement fallback to smaller model or streaming mode, handle QuotaExceededError explicitly with user choice.
 
-2. **Ignoring positional context** - v1.0 searched in priority order but didn't weight matches by distance. Solution: Make distance intrinsic to match scoring via `PositionalWeight = 1 / (1 + distance * DecayFactor)`.
+2. **Model download failure without recovery** — 50MB download takes 10-30s on mobile; network drops, CORS issues, or partial downloads corrupt IndexedDB. Prevention: Implement resumable downloads with Range requests, validate model integrity with SHA-256 hash, provide explicit retry UI, test model creation before caching.
 
-3. **Parameter explosion** - v1.0 accumulated 15+ tunable parameters as band-aids on fundamental model problems. Solution: Derive behavior from observed speech characteristics (pace, match quality, position) rather than expose configuration knobs.
+3. **AudioWorklet memory leaks** — Vosk WASM requires explicit `.free()` calls; forgetting causes 1MB/20s leak and tab crashes after 45-60 minutes. Prevention: Singleton recognizer pattern (reuse instance), cleanup on page unload and visibility change, convert Float32 to Int16 before acceptWaveform() to avoid WASM heap accumulation.
 
-4. **State machine complexity** - v1.0's CONFIDENT/UNCERTAIN/OFF_SCRIPT states represented system confidence, not user behavior. Solution: Simple reactive model (match found → scroll, no match → hold) without state transitions.
+4. **Real-time latency budget violation** — Vosk has 200-500ms latency (vs <100ms for Web Speech API); low-end devices exceed 1 second making voice control unusable. Prevention: Choose small model with low context frames, optimize AudioWorklet buffer size (4096 samples = 256ms), implement device-tier detection to select appropriate model.
 
-5. **Equal treatment of all directions** - v1.0 allowed backward skips with higher threshold, but repeated phrases still caused backward jumps. Solution: Forward movement is automatic with positional bias; backward requires explicit user action or much stronger consecutive confirmation.
+5. **API migration compatibility gaps** — Vosk marketed as "drop-in replacement" but events fire differently, transcript format differs, continuous recognition requires manual audio feeding. Prevention: Create compatibility wrapper that normalizes Vosk events to Web Speech API format, document breaking changes, feature detection with graceful degradation.
+
+**Additional critical pitfall:** Android 16KB page size incompatibility (Pixel 8/9, newer Samsung devices with Android 15+) causes native library load failures. This affects **native Vosk only** (mobile apps), not browser WASM version, so teleprompter is unaffected. Worth noting for awareness.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure for the rewrite:
+Based on research, suggested **3-phase structure** with clear dependencies and risk mitigation:
 
-### Phase 1: WordMatcher (Pure Matching Foundation)
+### Phase 1: Model Loading Infrastructure
+**Rationale:** Foundation for all Vosk functionality; high-risk area (quota management, download failures, CORS); must work perfectly before attempting recognition.
 
-**Rationale:** Start with the stateless foundation. Extract matching logic from TextMatcher, remove all position tracking, make it a pure function. This isolates fuzzy matching concerns and provides a testable unit.
+**Delivers:** Reliable 40MB model download with progress UI, IndexedDB caching, integrity validation, quota checking, fallback strategies.
 
-**Delivers:**
-- WordMatcher.js with `findCandidates(spokenWords, searchRange)` method
-- Position-constrained search (don't search entire script)
-- Distance-weighted scoring implementation
-- Consecutive match requirement
+**Addresses features:**
+- Model download system (table stakes)
+- Progress indication (table stakes)
+- Error recovery (table stakes)
 
-**Addresses:**
-- Positional context awareness (position-weighted scoring)
-- Foundation for handling repeated phrases
+**Avoids pitfalls:**
+- Model loading without quota management (Pitfall #1)
+- Model download failure without recovery (Pitfall #2)
+- Model CORS and CDN configuration (Pitfall #7)
 
-**Avoids:**
-- Mixing matching and position tracking concerns
-- Fuzzy matching without boundaries
+**Stack elements:**
+- VoskModelLoader class
+- IndexedDB wrapper with versioning
+- HTTPS + COOP/COEP headers
+- Model file bundled in /public or CDN
 
-**Research needed:** None - fuzzy matching patterns are well-established (Fuse.js, Levenshtein)
+**Success criteria:** 40MB model downloads with progress, caches in IndexedDB, loads instantly on refresh, handles quota errors gracefully.
 
-### Phase 2: PositionTracker (Confirmation Logic)
+### Phase 2: VoskRecognizer Adapter
+**Rationale:** Core integration that makes Vosk a drop-in replacement; adapter pattern isolates Vosk complexity; must match existing SpeechRecognizer API exactly to avoid downstream changes.
 
-**Rationale:** This is the brain of the rewrite. Implements the two-position model, acceptance rules, and confirmation logic. Must come after WordMatcher since it consumes match candidates.
+**Delivers:** VoskRecognizer class implementing SpeechRecognizer interface, audio pipeline (ScriptProcessor), event translation from Vosk to expected callbacks.
 
-**Delivers:**
-- PositionTracker.js with `confirmedPosition` as single source of truth
-- Two-position model (confirmed + candidate)
-- Acceptance rules (proximity bias, skip limits, consecutive confirmation)
-- Event emission on position changes
-- SkipDetector integrated (consecutive-word confirmation for large jumps)
+**Addresses features:**
+- VoskRecognizer class (table stakes)
+- Audio pipeline (table stakes)
+- Continuous recognition (table stakes)
+- Interim/partial results (table stakes)
 
-**Addresses:**
-- Never scroll ahead (hard boundary at confirmedPosition + buffer)
-- Skip confirmation (require N consecutive matches for jumps > threshold)
-- Monotonic forward constraint (confirmedPosition only increases)
+**Avoids pitfalls:**
+- AudioWorklet memory leaks (Pitfall #3) — implement singleton pattern and cleanup from start
+- Microphone permission handling (Pitfall #6) — check permission state before initialization
+- API migration compatibility gaps (Pitfall #8) — adapter normalizes events and formats
 
-**Avoids:**
-- Speculative position updates
-- State machine complexity
-- Predictive vs. reactive scrolling pitfall
+**Uses architecture:**
+- VoskRecognizer adapter
+- VoskAudioProcessor (ScriptProcessor for Phase 2, AudioWorklet migration deferred)
+- Adapter pattern ensures zero downstream changes
 
-**Research needed:** Minimal - test skip confirmation timing and consecutive count thresholds with real speech
+**Success criteria:** Vosk recognizes speech, results logged, same callback format as Web Speech API, WordMatcher/PositionTracker work unchanged, memory stable over 60+ minutes.
 
-### Phase 3: ScrollController (Reactive Display)
+### Phase 3: Engine Selection & Polish
+**Rationale:** User-facing features depend on working recognizer; engine toggle requires both recognizers to be functional; production polish addresses edge cases discovered in testing.
 
-**Rationale:** Scroll behavior is completely dependent on confirmed positions from PositionTracker. Simplify by removing all matching logic, state machines, and complex speed calculations. Just react to position changes.
+**Delivers:** UI toggle between Vosk and Web Speech API, localStorage preference persistence, model download progress UI, error handling with fallback, device-tier detection.
 
-**Delivers:**
-- ScrollController.js that subscribes to PositionTracker events
-- Scroll boundary enforcement (never exceed confirmed + buffer)
-- Pace-based speed adjustment (observed words per second)
-- Smooth scroll animation
-- Pause/resume without state transitions
+**Addresses features:**
+- Recognition engine toggle (table stakes)
+- Offline-first with fallback (differentiator)
+- Beep-free on Android (differentiator)
+- Privacy-first (differentiator)
 
-**Addresses:**
-- Fixed cue position (scroll to keep confirmed position at caret)
-- Speed adaptation (derive from observed pace)
-- Graceful off-script handling (just hold position when no confirmations)
+**Avoids pitfalls:**
+- Real-time latency budget violation (Pitfall #4) — device-tier detection selects appropriate model
+- API compatibility gaps (Pitfall #8) — unified interface proven in Phase 2
 
-**Avoids:**
-- Animation hiding logical problems (get position logic right first)
-- Insufficient silence handling (hold position on pause, no aggressive timeout)
+**Implements:**
+- Settings UI with engine toggle
+- Model management UI (cache size, clear cache)
+- Loading states (downloading, loading, ready, error)
+- Graceful degradation (Vosk fails → Web Speech API)
 
-**Research needed:** None - scroll mechanics already working in v1.0
-
-### Phase 4: Integration and Migration
-
-**Rationale:** Wire up the new pipeline, remove old components, update script.js to use new architecture.
-
-**Delivers:**
-- script.js updated to use WordMatcher → PositionTracker → ScrollController pipeline
-- Removal of TextMatcher.js, ScrollSync.js, ConfidenceLevel.js
-- Highlighter integration via PositionTracker events
-- Configuration simplified to 3-4 core parameters
-
-**Addresses:**
-- Clean component boundaries
-- Event-driven communication (Observer pattern)
-- Single source of truth (confirmedPosition)
-
-**Avoids:**
-- Bidirectional data flow
-- Mixed concerns in one class
-
-**Research needed:** None - integration patterns are straightforward
+**Success criteria:** User can toggle engines, both work identically from app perspective, Android Chrome has no beep, offline mode works, clear error messages.
 
 ### Phase Ordering Rationale
 
-**Bottom-up implementation:**
-1. WordMatcher provides pure matching foundation (no dependencies)
-2. PositionTracker consumes WordMatcher output (depends on Phase 1)
-3. ScrollController consumes PositionTracker events (depends on Phase 2)
-4. Integration wires everything together (depends on Phases 1-3)
+- **Phase 1 before Phase 2:** Can't test recognition without a working model loader; quota/download issues must be solved before attempting audio processing; reduces risk by validating hardest part first.
 
-**Why this order:**
-- Each phase delivers a testable unit before moving to dependent components
-- Matching logic can be unit-tested in isolation with mock transcripts
-- Position tracking can be tested with mock match candidates
-- Scroll behavior can be tested with mock position confirmations
-- Avoids "big bang" rewrite - incremental validation at each step
+- **Phase 2 before Phase 3:** Need working recognizer before building UI around it; adapter pattern must be proven before exposing engine selection; allows testing recognizer in isolation.
 
-**Dependency chain:** The pipeline architecture creates a natural ordering where each component has a clear input (from previous phase) and output (to next phase).
+- **Sequential not parallel:** Each phase depends on previous working perfectly; model loading bugs break recognizer, recognizer bugs break UI; clear checkpoint between each phase.
+
+- **Minimal viable increments:** Phase 1 delivers cacheable model, Phase 2 delivers working recognition, Phase 3 delivers user control; each is independently testable and valuable.
 
 ### Research Flags
 
-**Phases with standard patterns (skip deep research):**
-- **Phase 1 (WordMatcher):** Fuzzy matching is well-documented, Fuse.js patterns established
-- **Phase 3 (ScrollController):** Scroll mechanics already working in v1.0
-- **Phase 4 (Integration):** Event-driven patterns are standard JavaScript
+**Phases needing deeper research during planning:**
+- **None** — Vosk integration is well-documented with established patterns; research completed provides sufficient detail for all three phases; existing teleprompter codebase provides proven patterns for adapter integration.
 
-**Phase needing empirical validation:**
-- **Phase 2 (PositionTracker):** Acceptance rule thresholds (skip confirmation count, consecutive requirements, position decay factor) need testing with real speech. Research provides starting values but may need tuning based on observed behavior. This is NOT parameter explosion - it's validating 3-4 core algorithmic constants.
+**Phases with standard patterns (skip research-phase):**
+- **Phase 1:** Model loading — standard fetch API, IndexedDB API, quota management documented in MDN
+- **Phase 2:** Adapter pattern — existing SpeechRecognizer provides exact interface to match
+- **Phase 3:** UI integration — existing settings patterns in teleprompter
+
+**Research validation during implementation:**
+- Phase 1: Verify CORS configuration on production CDN (test all browsers)
+- Phase 2: Measure actual latency on target devices (Pixel 3a, iPhone SE)
+- Phase 3: Validate device-tier detection heuristics with real user devices
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Algorithms | HIGH | Distance-weighted scoring and two-position model are well-established in alignment research; algorithms include complete pseudocode |
-| Features | MEDIUM | Table stakes validated against multiple competitors; differentiators based on v1.0 gaps and user feedback; some edge cases need empirical testing |
-| Architecture | HIGH | Pipeline pattern, observer pattern, separation of concerns are proven software architecture; component boundaries clearly defined; integration points documented |
-| Pitfalls | HIGH | Based on v1.0 code analysis (actual implementation failures) plus domain research; failure modes well-understood from experience |
+| Stack | MEDIUM | vosk-browser verified on npm and functional but unmaintained for 3 years; ScriptProcessor deprecated but no removal timeline; WASM/SharedArrayBuffer requirements verified via MDN |
+| Features | HIGH | Table stakes identified from Vosk documentation and Web Speech API parity; differentiators validated against user pain points (Android beep); anti-features confirmed via community reports |
+| Architecture | MEDIUM | Adapter pattern proven in codebase; AudioWorklet patterns verified via Chrome documentation; ring buffer pattern from community sources (not official); Vosklet vs vosk-browser trade-offs based on GitHub issues |
+| Pitfalls | MEDIUM | Critical pitfalls sourced from vosk-browser/vosk-api GitHub issues; quota management from MDN; memory leak patterns from community reports; mitigation strategies are best practices but not tested in this specific context |
 
-**Overall confidence:** HIGH
+**Overall confidence:** MEDIUM
 
-v1.0 provides concrete evidence of what doesn't work. Research provides established algorithms (forced alignment, monotonic constraints) and architectural patterns (pipeline, observer). The rewrite path is clear: replace speculative prediction with reactive confirmation, replace parameter explosion with derived behavior, replace tangled components with clean separation.
+**Rationale:** Core technologies and browser APIs are well-documented with HIGH confidence. Vosk-specific integration patterns have MEDIUM confidence due to sparse official documentation and reliance on community sources (GitHub issues, WebSearch). The unmaintained status of vosk-browser lowers confidence despite functional verification. Architecture patterns (adapter, ring buffer) are proven elsewhere but application to this specific use case needs validation.
 
 ### Gaps to Address
 
-**Algorithmic tuning:**
-- Starting values for decayFactor (0.1), skipThreshold (10), requiredConfirmations (2) are research-based but need validation with diverse content (not just Gettysburg Address)
-- Test with: speeches with numbers, technical documents, poems with repeated lines, unusual names
-- Measurement: latency (<300ms target), false positive rate (<5%), false negative rate (<5%)
+**During Phase 1 planning:**
+- **CDN selection:** Research recommends "bundle in /public OR CDN" but doesn't specify which CDN if using external. Validate: Netlify CDN, Cloudflare, or alphacephei.com official CDN? Test CORS configuration for chosen CDN in all target browsers.
 
-**Edge case validation:**
-- Font size changes mid-read (express scroll targets in word positions, not pixels)
-- Web Speech API timing inconsistencies (design for asynchronous, potentially contradictory input)
-- Script content variations (numbers as digits vs. words, abbreviations, technical terms)
+- **IndexedDB quota formulas:** Research cites "10% of disk or 10GB" for Firefox, "percentage of free space" for Chrome, but Safari iOS has "strict caps + 7-day eviction." Validate: What are actual Safari quotas? Test on real iOS device with low storage.
 
-**User experience refinement:**
-- Visual state feedback (tracking vs. holding vs. paused) - research suggests subtle cue indicator changes
-- Confidence visualization (optional) - avoid numeric scores, use color/animation
-- Manual override mechanism - needed but not specified in detail
+**During Phase 2 implementation:**
+- **ScriptProcessor vs AudioWorklet:** Research recommends ScriptProcessor for simplicity despite deprecation. Validate: Are console warnings acceptable in production? Should we implement AudioWorklet from start or accept technical debt?
 
-**These gaps are manageable:**
-- Algorithmic tuning is empirical validation, not research (run UAT with diverse scripts)
-- Edge cases are implementation details, not architectural unknowns
-- UX refinement can happen after core algorithm proves stable
+- **Actual latency measurements:** Research estimates 200-500ms based on community reports. Validate: Measure with real device on prototype (iPhone SE 2, Pixel 3a) before committing to small model.
+
+**During Phase 3 planning:**
+- **Device-tier heuristics:** Research suggests `navigator.hardwareConcurrency` and `navigator.deviceMemory` for tier detection. Validate: Do these APIs reliably predict Vosk performance? Test on range of devices.
+
+**Post-implementation monitoring:**
+- **vosk-browser maintenance status:** Research flags 3-year staleness. Monitor: Subscribe to GitHub repo for updates; plan migration to Vosklet if blocking issues emerge; maintain Web Speech API fallback as insurance.
+
+- **Browser compatibility evolution:** SharedArrayBuffer requirements, ScriptProcessor deprecation timeline. Monitor: Test on new browser versions; track deprecation announcements; plan AudioWorklet migration when needed.
 
 ## Sources
 
-### Algorithms (HIGH confidence)
+### Primary (HIGH confidence)
+- [vosk-browser npm package](https://www.npmjs.com/package/vosk-browser) — Package version, API surface, usage
+- [Vosk Models - alphacephei.com](https://alphacephei.com/vosk/models) — Model sizes (39-41 MB confirmed), WER benchmarks, download links
+- [SharedArrayBuffer - MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer) — Security requirements updated Jan 2026
+- [IndexedDB API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) — Quota management, caching patterns updated Jan 2026
+- [Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) — AudioWorklet, ScriptProcessor status
+- [COOP/COEP headers - MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy) — Required for SharedArrayBuffer
 
-**Positional scoring:**
-- [Distance matters! Cumulative proximity expansions for ranking documents](https://link.springer.com/article/10.1007/s10791-014-9243-x) - Term proximity scoring theory
-- [Algolia Ranking Criteria](https://www.algolia.com/doc/guides/managing-results/relevance-overview/in-depth/ranking-criteria/) - Practical proximity ranking
-- [Observable: Distance-weighted proximity score](https://observablehq.com/@abenrob/distance-weighted-proximity-score/2) - Inverse quadratic decay
+### Secondary (MEDIUM confidence)
+- [vosk-browser GitHub issues](https://github.com/ccoreilly/vosk-browser/issues/8) — AudioWorklet "half-baked", Safari compatibility issues
+- [vosk-browser GitHub issues](https://github.com/ccoreilly/vosk-browser/issues/9) — ScriptProcessor deprecation discussion
+- [Vosklet GitHub](https://github.com/msqr1/Vosklet) — Alternative library comparison, AudioWorklet support
+- [vosk-api GitHub issues](https://github.com/alphacep/vosk-api/issues/2007) — Android 16KB page size (native only, not WASM)
+- [vosk-api GitHub issues](https://github.com/alphacep/vosk-api/issues/1752) — Memory leak reports, cleanup patterns
+- [Vosk latency optimization](https://alphacephei.com/nsh/2020/11/27/latency.html) — Official guidance on reducing latency
+- [AudioWorklet Design Pattern - Chrome Developers](https://developer.chrome.com/blog/audio-worklet-design-pattern) — Ring buffer pattern
+- [VideoSDK Vosk guide](https://www.videosdk.live/developer-hub/stt/vosk-speech-recognition) — Community implementation patterns
 
-**Alignment algorithms:**
-- [Smith-Waterman Algorithm](https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm) - Local sequence alignment
-- [Monotonic Alignment for TTS](https://arxiv.org/html/2409.07704v1) - Forward-only constraint
-- [NVIDIA Forced Alignment](https://research.nvidia.com/labs/conv-ai/blogs/2023/2023-08-forced-alignment/) - Audio-text synchronization
+### Tertiary (LOW confidence)
+- WebSearch results on vosk-browser performance (200-500ms latency estimates — needs device testing)
+- WebSearch results on vosk-browser memory usage (300MB+ estimates — needs profiling)
+- Community reports on model accuracy trade-offs (needs validation with actual script content)
 
-**Fuzzy matching:**
-- [Fuse.js Scoring Theory](https://www.fusejs.io/concepts/scoring-theory.html) - Fuzzy search internals
-- [Hypothesis Fuzzy Anchoring](https://web.hypothes.is/blog/fuzzy-anchoring/) - Position-aware text anchoring
-
-### Features (MEDIUM confidence)
-
-**Competitor analysis:**
-- [PromptSmart Pro](https://apps.apple.com/us/app/promptsmart-pro-teleprompter/id894811756) - VoiceTrack technology
-- [PromptSmart Help](https://www.tumblr.com/promptsmart/173007383876/voicetrack-101-optimization) - Edge case workarounds
-- [Speakflow Guide](https://www.speakflow.com/guide) - Flow mode documentation
-- [Autoscript Voice](https://autoscript.tv/voice/) - Broadcast-grade tracking
-
-**User feedback:**
-- [PromptSmart Reviews](https://appcustomerservice.com/app/894811756/promptsmart-pro-teleprompter) - Repeated phrase failures
-- [Common Teleprompter Issues](https://foxcue.com/blog/common-teleprompter-issues-and-quick-resolutions/) - Industry pain points
-
-### Architecture (HIGH confidence)
-
-**Patterns:**
-- [Game Programming Patterns: State](https://gameprogrammingpatterns.com/state.html) - State management
-- [Observer Pattern in JavaScript](https://medium.com/@artemkhrenov/the-observer-pattern-in-modern-javascript-building-reactive-systems-9337d6a27ee7) - Event-driven systems
-- [Pipeline Pattern](https://dev.to/wallacefreitas/the-pipeline-pattern-streamlining-data-processing-in-software-architecture-44hn) - Data transformation chains
-- [Separation of Concerns](https://www.geeksforgeeks.org/software-engineering/separation-of-concerns-soc/) - Architectural principle
-
-### Pitfalls (HIGH confidence)
-
-**v1.0 codebase analysis:**
-- `/Users/brent/project/matching/TextMatcher.js` - Proximity search without position weighting
-- `/Users/brent/project/matching/ScrollSync.js` - State machine with 15+ parameters
-- `/Users/brent/project/matching/ConfidenceLevel.js` - Multi-factor confidence calculation
-- `/Users/brent/project/.planning/PROJECT.md` - v1.0 failure documentation
-
-**Domain research:**
-- [Forced Alignment Challenges](https://www.futurebeeai.com/knowledge-hub/forced-alignment-speech) - Alignment fundamentals
-- [Confidence Score Pitfalls](https://www.mindee.com/blog/how-use-confidence-scores-ml-models) - Threshold tuning
-- [Speech Rate Estimation](https://pmc.ncbi.nlm.nih.gov/articles/PMC2860302/) - Pace calculation
+### Cross-Verified Findings (promoted to HIGH confidence)
+- vosk-browser v0.0.8 is latest version (npm + GitHub releases agree)
+- vosk-model-small-en-us-0.15 is ~40MB (multiple sources: alphacephei.com, HuggingFace, SunFounder docs)
+- SharedArrayBuffer requires HTTPS + COOP/COEP (MDN, caniuse.com, Chrome DevRel blog)
+- ScriptProcessorNode deprecated but functional (MDN, GitHub issues, caniuse.com)
+- WebAssembly has 99% browser support (caniuse.com, webassembly.org)
 
 ---
 
-*Research completed: 2026-01-24*
-*Ready for roadmap: Yes*
+**Research completed:** 2026-02-01
+**Ready for roadmap:** Yes
+
+**Next step:** Use this summary to inform requirements definition and roadmap creation. Each suggested phase has clear deliverables, addresses specific features/pitfalls from research, and includes success criteria for planning.
