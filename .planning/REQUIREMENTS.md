@@ -102,53 +102,58 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MODEL-01 | TBD | Pending |
-| MODEL-02 | TBD | Pending |
-| MODEL-03 | TBD | Pending |
-| MODEL-04 | TBD | Pending |
-| MODEL-05 | TBD | Pending |
-| MODEL-06 | TBD | Pending |
-| MODEL-07 | TBD | Pending |
-| MODEL-08 | TBD | Pending |
-| VOSK-01 | TBD | Pending |
-| VOSK-02 | TBD | Pending |
-| VOSK-03 | TBD | Pending |
-| VOSK-04 | TBD | Pending |
-| VOSK-05 | TBD | Pending |
-| VOSK-06 | TBD | Pending |
-| VOSK-07 | TBD | Pending |
-| VOSK-08 | TBD | Pending |
-| VOSK-09 | TBD | Pending |
-| VOSK-10 | TBD | Pending |
-| ENGINE-01 | TBD | Pending |
-| ENGINE-02 | TBD | Pending |
-| ENGINE-03 | TBD | Pending |
-| ENGINE-04 | TBD | Pending |
-| ENGINE-05 | TBD | Pending |
-| ENGINE-06 | TBD | Pending |
-| ENGINE-07 | TBD | Pending |
-| ENGINE-08 | TBD | Pending |
-| ENGINE-09 | TBD | Pending |
-| INTEG-01 | TBD | Pending |
-| INTEG-02 | TBD | Pending |
-| INTEG-03 | TBD | Pending |
-| INTEG-04 | TBD | Pending |
-| INTEG-05 | TBD | Pending |
-| INTEG-06 | TBD | Pending |
-| INTEG-07 | TBD | Pending |
-| VALID-01 | TBD | Pending |
-| VALID-02 | TBD | Pending |
-| VALID-03 | TBD | Pending |
-| VALID-04 | TBD | Pending |
-| VALID-05 | TBD | Pending |
-| VALID-06 | TBD | Pending |
-| VALID-07 | TBD | Pending |
+| MODEL-01 | Phase 9 | Pending |
+| MODEL-02 | Phase 9 | Pending |
+| MODEL-03 | Phase 9 | Pending |
+| MODEL-04 | Phase 9 | Pending |
+| MODEL-05 | Phase 9 | Pending |
+| MODEL-06 | Phase 9 | Pending |
+| MODEL-07 | Phase 9 | Pending |
+| MODEL-08 | Phase 9 | Pending |
+| VOSK-01 | Phase 10 | Pending |
+| VOSK-02 | Phase 10 | Pending |
+| VOSK-03 | Phase 10 | Pending |
+| VOSK-04 | Phase 10 | Pending |
+| VOSK-05 | Phase 10 | Pending |
+| VOSK-06 | Phase 10 | Pending |
+| VOSK-07 | Phase 10 | Pending |
+| VOSK-08 | Phase 10 | Pending |
+| VOSK-09 | Phase 10 | Pending |
+| VOSK-10 | Phase 10 | Pending |
+| ENGINE-01 | Phase 11 | Pending |
+| ENGINE-02 | Phase 11 | Pending |
+| ENGINE-03 | Phase 11 | Pending |
+| ENGINE-04 | Phase 11 | Pending |
+| ENGINE-05 | Phase 11 | Pending |
+| ENGINE-06 | Phase 11 | Pending |
+| ENGINE-07 | Phase 11 | Pending |
+| ENGINE-08 | Phase 11 | Pending |
+| ENGINE-09 | Phase 11 | Pending |
+| INTEG-01 | Phase 10 | Pending |
+| INTEG-02 | Phase 10 | Pending |
+| INTEG-03 | Phase 11 | Pending |
+| INTEG-04 | Phase 11 | Pending |
+| INTEG-05 | Phase 11 | Pending |
+| INTEG-06 | Phase 9 | Pending |
+| INTEG-07 | Phase 9 | Pending |
+| VALID-01 | Phase 11 | Pending |
+| VALID-02 | Phase 11 | Pending |
+| VALID-03 | Phase 11 | Pending |
+| VALID-04 | Phase 11 | Pending |
+| VALID-05 | Phase 11 | Pending |
+| VALID-06 | Phase 11 | Pending |
+| VALID-07 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 40 total
-- Mapped to phases: 0 (will be mapped during roadmap creation)
-- Unmapped: 40
+- Mapped to phases: 40/40 (100%)
+- Unmapped: 0
+
+**Phase breakdown:**
+- Phase 9 (Model Loading Infrastructure): 10 requirements
+- Phase 10 (VoskRecognizer Adapter): 12 requirements
+- Phase 11 (Engine Selection & Polish): 18 requirements
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after initial definition*
+*Last updated: 2026-02-01 after roadmap creation*

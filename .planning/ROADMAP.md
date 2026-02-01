@@ -3,7 +3,8 @@
 ## Milestones
 
 - v1.0 MVP - Phases 1-4 (shipped 2026-01-24)
-- **v1.1 Following-Along Rewrite** - Phases 5-8 (shipped 2026-01-24)
+- v1.1 Following-Along Rewrite - Phases 5-8 (shipped 2026-01-24)
+- **v1.2 Offline Voice Recognition** - Phases 9-11 (in progress)
 
 ## Phases
 
@@ -50,90 +51,107 @@ Plans:
 
 </details>
 
-### v1.1 Following-Along Rewrite (SHIPPED 2026-01-24)
-
-**Milestone Goal:** Completely rewrite position-tracking and scroll logic to follow the user naturally. The teleprompter should confirm where you ARE, not predict where you'll BE.
-
-**Core Principles:**
-1. Next words to speak always at caret (fixed position)
-2. Scroll is reactive to confirmed speech, not predictive
-3. Strong positional bias - prefer nearby matches
-4. Never scroll ahead of confirmed position
-5. Skip detection requires consecutive-word confirmation
-
-- [x] **Phase 5: WordMatcher** - Pure matching foundation with distance-weighted scoring
-- [x] **Phase 6: PositionTracker** - Confirmation logic with two-position model
-- [x] **Phase 7: ScrollController** - Reactive display with pace-derived scrolling
-- [x] **Phase 8: Integration** - Wire pipeline, remove old components
-
-## Phase Details
+<details>
+<summary>v1.1 Following-Along Rewrite (Phases 5-8) - SHIPPED 2026-01-24</summary>
 
 ### Phase 5: WordMatcher
 **Goal**: Create a stateless matching component that scores candidates by both fuzzy match quality and positional proximity
-**Depends on**: Phase 4 (v1.0 complete)
-**Requirements**: MATCH-01, MATCH-02, MATCH-03, MATCH-04, ARCH-01
 **Plans**: 2 plans
 
 Plans:
-- [x] 05-01-PLAN.md — TDD: Core WordMatcher implementation with distance-weighted scoring
-- [x] 05-02-PLAN.md — Edge cases, character offsets, and JSDoc types
-
-**Success Criteria** (what must be TRUE):
-  1. User speaks "four score and seven" near script start - app finds match within 50-word radius of current position
-  2. User speaks phrase that appears twice in script - app ranks the closer occurrence higher
-  3. User speaks partial/paraphrased phrase - app finds fuzzy match with score reflecting both text similarity and distance
-  4. User speaks 2+ consecutive matching words - app reports them as high-confidence candidates
+- [x] 05-01: TDD: Core WordMatcher implementation with distance-weighted scoring
+- [x] 05-02: Edge cases, character offsets, and JSDoc types
 
 ### Phase 6: PositionTracker
 **Goal**: Maintain confirmed position as single source of truth using two-position model (floor + ceiling)
-**Depends on**: Phase 5
-**Requirements**: POS-01, POS-02, POS-03, POS-04, SKIP-01, SKIP-02, ARCH-02
-**Success Criteria** (what must be TRUE):
-  1. App exposes confirmedPosition that only moves forward (never backward automatically)
-  2. User speaks matching words - confirmedPosition advances only after high-confidence match
-  3. User skips 20 words ahead and speaks 2+ consecutive matches - position jumps to new location
-  4. User skips backward - app holds position (no automatic backward jump)
-  5. App provides scroll boundary that external code can query (confirmedPosition + buffer)
 **Plans**: 2 plans
 
 Plans:
-- [x] 06-01-PLAN.md — TDD: Core PositionTracker with two-position model and monotonic constraint
-- [x] 06-02-PLAN.md — TDD: Skip detection with distance-dependent consecutive matching
+- [x] 06-01: TDD: Core PositionTracker with two-position model and monotonic constraint
+- [x] 06-02: TDD: Skip detection with distance-dependent consecutive matching
 
 ### Phase 7: ScrollController
 **Goal**: React to position confirmations to scroll display, keeping next words at caret and deriving speed from speech pace
-**Depends on**: Phase 6
-**Requirements**: SCROLL-01, SCROLL-02, SCROLL-03, SCROLL-04, SCROLL-05, VIS-01, ARCH-03
-**Success Criteria** (what must be TRUE):
-  1. Display never scrolls past confirmed position - next words to speak always visible at caret
-  2. User speaks at 150 wpm - scroll speed matches, words arrive at caret just as user reaches them
-  3. User pauses for 5+ seconds - scroll holds position, next words remain at caret
-  4. User resumes speaking after pause - tracking continues automatically (no manual restart)
-  5. UI shows clear visual indication of tracking state (tracking vs. holding)
 **Plans**: 2 plans
 
 Plans:
-- [x] 07-01-PLAN.md — TDD: Core ScrollController with pace-derived scrolling and exponential smoothing
-- [x] 07-02-PLAN.md — Visual feedback: caret line, tracking indicator, settings slider
+- [x] 07-01: TDD: Core ScrollController with pace-derived scrolling and exponential smoothing
+- [x] 07-02: Visual feedback: caret line, tracking indicator, settings slider
 
 ### Phase 8: Integration
 **Goal**: Wire new components into pipeline, remove old components, verify clean architecture
-**Depends on**: Phase 7
-**Requirements**: ARCH-04
-**Success Criteria** (what must be TRUE):
-  1. Old components removed (TextMatcher.js, ScrollSync.js, ConfidenceLevel.js no longer exist)
-  2. New pipeline wired: SpeechRecognizer -> WordMatcher -> PositionTracker -> ScrollController
-  3. User can read entire script naturally with new system (end-to-end verification)
 **Plans**: 2 plans
 
 Plans:
-- [x] 08-01-PLAN.md — Delete old components, wire v1.1 pipeline in script.js
-- [x] 08-02-PLAN.md — Debug overlay features, end-to-end verification
+- [x] 08-01: Delete old components, wire v1.1 pipeline in script.js
+- [x] 08-02: Debug overlay features, end-to-end verification
+
+</details>
+
+### v1.2 Offline Voice Recognition (In Progress)
+
+**Milestone Goal:** Replace Web Speech API with Vosk offline recognition to eliminate Android beep and enable fully offline operation.
+
+- [ ] **Phase 9: Model Loading Infrastructure** - Foundation for offline recognition
+- [ ] **Phase 10: VoskRecognizer Adapter** - Drop-in replacement for SpeechRecognizer
+- [ ] **Phase 11: Engine Selection & Polish** - User control and cross-platform validation
+
+## Phase Details
+
+### Phase 9: Model Loading Infrastructure
+**Goal**: Reliable model download, caching, and initialization that handles quota limits and network failures gracefully
+**Depends on**: Phase 8 (v1.1 complete)
+**Requirements**: MODEL-01, MODEL-02, MODEL-03, MODEL-04, MODEL-05, MODEL-06, MODEL-07, MODEL-08, INTEG-06, INTEG-07
+**Success Criteria** (what must be TRUE):
+  1. App downloads 40MB Vosk model with visible progress indicator (percentage and MB downloaded)
+  2. App caches downloaded model in IndexedDB and loads instantly (<2s) on subsequent visits
+  3. App validates model integrity using SHA-256 hash before caching (prevents corrupted models)
+  4. App checks storage quota before downloading and shows clear error when quota exceeded
+  5. App serves with COOP/COEP headers over HTTPS (enables SharedArrayBuffer for Vosk WASM)
+**Plans**: TBD
+
+Plans:
+- [ ] 09-01: TBD
+- [ ] 09-02: TBD
+
+### Phase 10: VoskRecognizer Adapter
+**Goal**: VoskRecognizer class that implements exact same interface as SpeechRecognizer, enabling zero changes to downstream components
+**Depends on**: Phase 9
+**Requirements**: VOSK-01, VOSK-02, VOSK-03, VOSK-04, VOSK-05, VOSK-06, VOSK-07, VOSK-08, VOSK-09, VOSK-10, INTEG-01, INTEG-02
+**Success Criteria** (what must be TRUE):
+  1. VoskRecognizer provides same methods (start, stop, pause, resume) and events (onTranscript, onError, onStateChange) as SpeechRecognizer
+  2. VoskRecognizer emits interim results during speech (isFinal: false) and final results when utterance complete (isFinal: true)
+  3. VoskRecognizer achieves <500ms latency from speech to transcript on target devices (Pixel 3a, iPhone SE)
+  4. Existing components (WordMatcher, PositionTracker, ScrollController, AudioVisualizer) work unchanged with VoskRecognizer
+  5. VoskRecognizer maintains stable memory usage over 60+ minute sessions (no leaks from WASM resources)
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: TBD
+- [ ] 10-02: TBD
+
+### Phase 11: Engine Selection & Polish
+**Goal**: User can choose recognition engine with intelligent fallback, and voice mode works silently across all target platforms
+**Depends on**: Phase 10
+**Requirements**: ENGINE-01, ENGINE-02, ENGINE-03, ENGINE-04, ENGINE-05, ENGINE-06, ENGINE-07, ENGINE-08, ENGINE-09, INTEG-03, INTEG-04, INTEG-05, VALID-01, VALID-02, VALID-03, VALID-04, VALID-05, VALID-06, VALID-07
+**Success Criteria** (what must be TRUE):
+  1. User can select recognition engine (Vosk or Web Speech API) from settings UI with preference persisted in localStorage
+  2. App displays current engine in use, model download progress, cache size, and clear loading states (downloading, loading, ready, error)
+  3. App falls back to Web Speech API automatically when Vosk unavailable or initialization fails
+  4. Voice mode works on Android Chrome without notification beep (primary goal achieved)
+  5. Voice mode works offline on Android after model download (no network required)
+  6. Voice mode works on iOS Safari and Desktop Chrome/Firefox/Safari with appropriate engine
+  7. Recognition accuracy is acceptable for teleprompter use (subjective evaluation, >80% word error rate target)
+**Plans**: TBD
+
+Plans:
+- [ ] 11-01: TBD
+- [ ] 11-02: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 -> 6 -> 7 -> 8
+Phases execute in numeric order: 9 -> 10 -> 11
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -145,6 +163,10 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 6. PositionTracker | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 7. ScrollController | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 8. Integration | v1.1 | 2/2 | Complete | 2026-01-24 |
+| 9. Model Loading | v1.2 | 0/TBD | Not started | - |
+| 10. VoskRecognizer | v1.2 | 0/TBD | Not started | - |
+| 11. Engine Selection | v1.2 | 0/TBD | Not started | - |
 
 ---
 *Created: 2026-01-24 for v1.1 Following-Along Rewrite*
+*Updated: 2026-02-01 for v1.2 Offline Voice Recognition*
