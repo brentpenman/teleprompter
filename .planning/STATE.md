@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** The teleprompter follows YOU, not the other way around. It matches your natural speaking rhythm and handles the messiness of real speech.
-**Current focus:** Phase 10 - VoskRecognizer Adapter
+**Current focus:** Phase 11 - Engine Selection & Polish
 
 ## Current Position
 
-Phase: 10 of 11 (VoskRecognizer Adapter)
-Plan: 3 of 3
-Status: Verified complete
-Last activity: 2026-02-01 - Phase 10 verified (all 12 requirements satisfied)
+Phase: 11 of 11 (Engine Selection & Polish)
+Plan: 1 of 3
+Status: In progress
+Last activity: 2026-02-01 - Completed 11-01-PLAN.md (Settings Infrastructure)
 
-Progress: [█████████░] 95% (21/22 plans complete)
+Progress: [█████████░] 96% (22/23 plans complete)
 
 ## Performance Metrics
 
@@ -29,7 +29,7 @@ Progress: [█████████░] 95% (21/22 plans complete)
 |-------|-------|-------|----------|
 | v1.0 (1-4) | 13 | - | - |
 | v1.1 (5-8) | 8 | - | - |
-| v1.2 (9-11) | 5 of ~12 | ~13min | ~2.6min/plan |
+| v1.2 (9-11) | 6 of ~12 | ~20min | ~3.3min/plan |
 
 **Recent Trend:**
 - v1.0 and v1.1 shipped same day (2026-01-24)
@@ -69,6 +69,11 @@ Recent decisions affecting v1.2 work:
 - 10-02: pause/resume disconnect/reconnect audio graph (more efficient than Web Speech API stop/start)
 - 10-03: getAudioContext() and getMediaStreamSource() expose audio pipeline for visualization
 - 10-03: VoskRecognizer achieves full API parity with SpeechRecognizer (all 10 VOSK requirements met)
+- 11-01: localStorage for settings (not IndexedDB) - simple key-value, 5MB quota sufficient
+- 11-01: Try-catch wrapper on ALL localStorage access (private browsing throws SecurityError)
+- 11-01: iOS always gets webspeech (SharedArrayBuffer blocked even with COOP/COEP)
+- 11-01: Android + Vosk prioritized to eliminate notification beep (PRIMARY v1.2 goal)
+- 11-01: Factory automatic fallback Vosk→WebSpeech (graceful degradation maximizes availability)
 
 ### Pending Todos
 
@@ -92,9 +97,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 19:26 UTC
-Stopped at: Completed 10-03-PLAN.md (Event Mapping and API Completion)
-Resume file: None - Phase 10 complete, ready for Phase 11
+Last session: 2026-02-01 18:57 UTC
+Stopped at: Completed 11-01-PLAN.md (Settings Infrastructure)
+Resume file: None - Continue with 11-02 or 11-03
 
 ---
-*Updated: 2026-02-01 after 10-03 completion*
+*Updated: 2026-02-01 after 11-01 completion*
