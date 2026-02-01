@@ -95,36 +95,81 @@ class LoadingStates {
   }
 
   /**
-   * Show engine indicator (persistent display of active engine)
+   * Show/update the full-width top progress bar during model download
    *
-   * @param {HTMLElement} container - Container element (typically #engine-indicator)
-   * @param {string} engineUsed - Engine type: 'vosk' or 'webspeech'
-   * @param {boolean} modelCached - Whether Vosk model is cached
-   * @param {number} cacheSize - Model cache size in bytes
-   * @param {number} lastUpdated - Timestamp of last cache update
+   * @param {HTMLElement} barEl - The bar container (#model-loading-bar)
+   * @param {HTMLElement} fillEl - The fill element (#model-loading-fill)
+   * @param {HTMLElement} textEl - The text element (#model-loading-text)
+   * @param {Object} progress - Progress info { status, percentage, loaded, total }
    */
-  static showEngineIndicator(container, engineUsed, modelCached, cacheSize, lastUpdated) {
-    if (!container) return;
+  static showTopProgressBar(barEl, fillEl, textEl, progress) {
+    if (!barEl || !fillEl || !textEl) return;
 
-    const cacheSizeMB = (cacheSize / (1024 * 1024)).toFixed(1);
-    const cacheDate = lastUpdated ? new Date(lastUpdated).toLocaleDateString() : 'Unknown';
+    const { status, percentage = 0, loaded = 0, total = 0 } = progress;
+    const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
+    const totalMB = (total / (1024 * 1024)).toFixed(1);
+
+    // Show the bar
+    barEl.classList.remove('hidden');
+
+    // Update fill width
+    fillEl.style.width = `${Math.min(percentage || 0, 100)}%`;
+
+    // Status text
+    switch (status) {
+      case 'checking-quota':
+        textEl.textContent = 'Checking storage...';
+        break;
+      case 'downloading':
+        textEl.textContent = `Downloading model: ${loadedMB}/${totalMB} MB (${Math.round(percentage)}%)`;
+        break;
+      case 'validating':
+        textEl.textContent = 'Validating model...';
+        fillEl.style.width = '100%';
+        break;
+      case 'caching':
+        textEl.textContent = 'Caching for offline use...';
+        fillEl.style.width = '100%';
+        break;
+      case 'complete':
+      case 'cached':
+        textEl.textContent = 'Model ready!';
+        fillEl.style.width = '100%';
+        // Auto-hide after 1 second
+        setTimeout(() => {
+          barEl.classList.add('hidden');
+        }, 1000);
+        break;
+      default:
+        textEl.textContent = 'Loading model...';
+    }
+  }
+
+  /**
+   * Hide the top progress bar
+   *
+   * @param {HTMLElement} barEl - The bar container (#model-loading-bar)
+   */
+  static hideTopProgressBar(barEl) {
+    if (barEl) barEl.classList.add('hidden');
+  }
+
+  /**
+   * Show engine label as small text (for inline display under tracking indicator)
+   *
+   * @param {HTMLElement} sublabelEl - The sublabel span (#engine-sublabel)
+   * @param {string} engineUsed - Engine type: 'vosk' or 'webspeech'
+   */
+  static showEngineLabel(sublabelEl, engineUsed) {
+    if (!sublabelEl) return;
 
     if (engineUsed === 'vosk') {
-      container.innerHTML = `
-        <div class="engine-badge vosk">Vosk (Offline)</div>
-        ${modelCached ? `
-          <div class="model-status">
-            Model cached: ${cacheSizeMB}MB (${cacheDate})
-          </div>
-        ` : ''}
-      `;
+      sublabelEl.textContent = 'Vosk';
     } else {
-      container.innerHTML = `
-        <div class="engine-badge webspeech">Web Speech API (Online)</div>
-      `;
+      sublabelEl.textContent = 'Web Speech';
     }
 
-    container.classList.remove('hidden');
+    sublabelEl.classList.remove('hidden');
   }
 
   /**

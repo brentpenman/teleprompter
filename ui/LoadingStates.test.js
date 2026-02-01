@@ -9,6 +9,7 @@ import LoadingStates from './LoadingStates.js';
 function createContainer() {
   const div = {
     innerHTML: '',
+    textContent: '',
     classList: {
       items: [],
       add: jest.fn(function(className) { this.items.push(className); }),
@@ -96,59 +97,128 @@ describe('LoadingStates', () => {
     });
   });
 
-  describe('showEngineIndicator', () => {
-    it('should show Vosk badge with cache info', () => {
-      const container = createContainer();
+  describe('showEngineLabel', () => {
+    it('should show Vosk label text', () => {
+      const sublabel = createContainer();
 
-      LoadingStates.showEngineIndicator(
-        container,
-        'vosk',
-        true,
-        40 * 1024 * 1024,
-        Date.now()
-      );
+      LoadingStates.showEngineLabel(sublabel, 'vosk');
 
-      expect(container.innerHTML).toContain('Vosk (Offline)');
-      expect(container.innerHTML).toContain('engine-badge vosk');
-      expect(container.innerHTML).toContain('Model cached');
-      expect(container.innerHTML).toContain('40.0MB');
-      expect(container.classList.remove).toHaveBeenCalledWith('hidden');
+      expect(sublabel.textContent).toBe('Vosk');
+      expect(sublabel.classList.remove).toHaveBeenCalledWith('hidden');
     });
 
-    it('should show Vosk badge without cache info when not cached', () => {
-      const container = createContainer();
+    it('should show Web Speech label text', () => {
+      const sublabel = createContainer();
 
-      LoadingStates.showEngineIndicator(
-        container,
-        'vosk',
-        false,
-        0,
-        0
-      );
+      LoadingStates.showEngineLabel(sublabel, 'webspeech');
 
-      expect(container.innerHTML).toContain('Vosk (Offline)');
-      expect(container.innerHTML).not.toContain('Model cached');
+      expect(sublabel.textContent).toBe('Web Speech');
+      expect(sublabel.classList.remove).toHaveBeenCalledWith('hidden');
     });
 
-    it('should show Web Speech badge', () => {
-      const container = createContainer();
-
-      LoadingStates.showEngineIndicator(
-        container,
-        'webspeech',
-        false,
-        0,
-        0
-      );
-
-      expect(container.innerHTML).toContain('Web Speech API (Online)');
-      expect(container.innerHTML).toContain('engine-badge webspeech');
-      expect(container.innerHTML).not.toContain('Model cached');
-    });
-
-    it('should handle null container gracefully', () => {
+    it('should handle null element gracefully', () => {
       expect(() => {
-        LoadingStates.showEngineIndicator(null, 'vosk', true, 0, 0);
+        LoadingStates.showEngineLabel(null, 'vosk');
+      }).not.toThrow();
+    });
+  });
+
+  describe('showTopProgressBar', () => {
+    function createBarElements() {
+      return {
+        bar: createContainer(),
+        fill: { style: { width: '0%' } },
+        text: { textContent: '' }
+      };
+    }
+
+    it('should show downloading progress with MB counts', () => {
+      const { bar, fill, text } = createBarElements();
+
+      LoadingStates.showTopProgressBar(bar, fill, text, {
+        status: 'downloading',
+        percentage: 42,
+        loaded: 17000000,
+        total: 40000000
+      });
+
+      expect(bar.classList.remove).toHaveBeenCalledWith('hidden');
+      expect(fill.style.width).toBe('42%');
+      expect(text.textContent).toContain('16.2');
+      expect(text.textContent).toContain('38.1');
+      expect(text.textContent).toContain('42%');
+    });
+
+    it('should show checking storage status', () => {
+      const { bar, fill, text } = createBarElements();
+
+      LoadingStates.showTopProgressBar(bar, fill, text, {
+        status: 'checking-quota'
+      });
+
+      expect(text.textContent).toBe('Checking storage...');
+    });
+
+    it('should show validating status at 100%', () => {
+      const { bar, fill, text } = createBarElements();
+
+      LoadingStates.showTopProgressBar(bar, fill, text, {
+        status: 'validating'
+      });
+
+      expect(text.textContent).toBe('Validating model...');
+      expect(fill.style.width).toBe('100%');
+    });
+
+    it('should show model ready and auto-hide on complete', () => {
+      jest.useFakeTimers();
+      const { bar, fill, text } = createBarElements();
+
+      LoadingStates.showTopProgressBar(bar, fill, text, {
+        status: 'complete'
+      });
+
+      expect(text.textContent).toBe('Model ready!');
+      expect(fill.style.width).toBe('100%');
+
+      jest.advanceTimersByTime(1000);
+      expect(bar.classList.add).toHaveBeenCalledWith('hidden');
+
+      jest.useRealTimers();
+    });
+
+    it('should cap percentage at 100', () => {
+      const { bar, fill, text } = createBarElements();
+
+      LoadingStates.showTopProgressBar(bar, fill, text, {
+        status: 'downloading',
+        percentage: 150,
+        loaded: 50000000,
+        total: 40000000
+      });
+
+      expect(fill.style.width).toBe('100%');
+    });
+
+    it('should handle null elements gracefully', () => {
+      expect(() => {
+        LoadingStates.showTopProgressBar(null, null, null, { status: 'downloading' });
+      }).not.toThrow();
+    });
+  });
+
+  describe('hideTopProgressBar', () => {
+    it('should add hidden class to bar', () => {
+      const bar = createContainer();
+
+      LoadingStates.hideTopProgressBar(bar);
+
+      expect(bar.classList.add).toHaveBeenCalledWith('hidden');
+    });
+
+    it('should handle null element gracefully', () => {
+      expect(() => {
+        LoadingStates.hideTopProgressBar(null);
       }).not.toThrow();
     });
   });

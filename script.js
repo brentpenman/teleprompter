@@ -358,19 +358,21 @@ function updateTrackingIndicator(scrollState) {
   const indicator = document.getElementById('tracking-indicator');
   if (!indicator) return;
 
+  const label = document.getElementById('tracking-label');
+
   // Remove all state classes
   indicator.classList.remove('tracking', 'holding', 'stopped');
 
-  // Add appropriate class and text
+  // Add appropriate class and text (use label span to preserve sublabel)
   if (scrollState === 'tracking') {
     indicator.classList.add('tracking');
-    indicator.textContent = 'Tracking';
+    if (label) label.textContent = 'Tracking';
   } else if (scrollState === 'holding') {
     indicator.classList.add('holding');
-    indicator.textContent = 'Holding';
+    if (label) label.textContent = 'Holding';
   } else {
     indicator.classList.add('stopped');
-    indicator.textContent = 'Stopped';
+    if (label) label.textContent = 'Stopped';
   }
 }
 
@@ -469,7 +471,10 @@ async function enableVoiceMode() {
 
   try {
     // Create recognizer via factory with progress tracking
-    const engineIndicator = document.getElementById('engine-indicator');
+    const modelLoadingBar = document.getElementById('model-loading-bar');
+    const modelLoadingFill = document.getElementById('model-loading-fill');
+    const modelLoadingText = document.getElementById('model-loading-text');
+
     const { recognizer, engineUsed, fallbackReason } = await RecognizerFactory.create(
       enginePreference,
       {
@@ -487,8 +492,8 @@ async function enableVoiceMode() {
         }
       },
       (progress) => {
-        // Show download progress in listening indicator
-        LoadingStates.showDownloadProgress(listeningIndicator, progress);
+        // Show progress in top bar
+        LoadingStates.showTopProgressBar(modelLoadingBar, modelLoadingFill, modelLoadingText, progress);
       }
     );
 
@@ -499,21 +504,17 @@ async function enableVoiceMode() {
     if (fallbackReason) {
       // Check if fallbackReason indicates Vosk initialization failure
       if (fallbackReason.includes('Vosk') || fallbackReason.includes('initialization') || fallbackReason.includes('failed')) {
-        LoadingStates.showError(
-          listeningIndicator,
-          `Vosk initialization failed: ${fallbackReason}. Using Web Speech API instead.`,
-          false
-        );
-        // Show message for 3 seconds then clear
-        setTimeout(() => {
-          listeningIndicator.innerHTML = '';
-        }, 3000);
+        showVoiceError(`Vosk unavailable: ${fallbackReason}. Using Web Speech API instead.`);
       }
       console.warn('Engine fallback:', fallbackReason);
     }
 
-    // Update engine indicator
-    LoadingStates.showEngineIndicator(engineIndicator, engineUsed, false, 0, Date.now());
+    // Hide loading bar now that engine is ready
+    LoadingStates.hideTopProgressBar(modelLoadingBar);
+
+    // Update engine sublabel under tracking indicator
+    const engineSublabel = document.getElementById('engine-sublabel');
+    LoadingStates.showEngineLabel(engineSublabel, engineUsed);
 
     // Android: skip getUserMedia for Web Speech API — holding a MediaStream from getUserMedia
     // blocks SpeechRecognition from accessing the mic on Android Chrome.
@@ -591,10 +592,8 @@ async function enableVoiceMode() {
   } catch (error) {
     console.error('[Voice] Failed to initialize voice mode:', error);
     state.voiceState = 'error';
-    LoadingStates.showError(listeningIndicator, error.message, true, () => {
-      listeningIndicator.innerHTML = '';
-      enableVoiceMode();
-    });
+    LoadingStates.hideTopProgressBar(document.getElementById('model-loading-bar'));
+    showVoiceError(`Voice initialization failed: ${error.message}`);
   }
 }
 
@@ -623,6 +622,11 @@ function disableVoiceMode() {
   voiceToggle.classList.remove('active');
   listeningIndicator.classList.add('hidden');
   playPauseBtn.disabled = false;
+
+  // Hide engine sublabel and loading bar
+  const engineSublabel = document.getElementById('engine-sublabel');
+  if (engineSublabel) engineSublabel.classList.add('hidden');
+  LoadingStates.hideTopProgressBar(document.getElementById('model-loading-bar'));
 
   // Stop debug updates (keyboard shortcut controls visibility)
   stopDebugUpdates();
