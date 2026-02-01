@@ -72,8 +72,11 @@ class RecognizerFactory {
         const recognizer = new VoskRecognizer(callbacks);
 
         // Create ModelLoader with dependencies
+        const cache = new ModelCache();
+        await cache.open(); // Initialize IndexedDB connection
+
         const loader = new ModelLoader(
-          new ModelCache(),
+          cache,
           new ModelDownloader(),
           new ModelValidator()
         );
