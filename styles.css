@@ -296,11 +296,6 @@ body {
     color: rgba(255, 255, 255, 0.5);
 }
 
-/* Smooth transitions for highlight changes */
-#teleprompter-text {
-    /* Enable smooth color transitions on text */
-    transition: color 0.2s ease;
-}
 
 
 /* Debug overlay for scroll stats */

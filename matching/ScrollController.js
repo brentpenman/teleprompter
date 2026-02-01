@@ -21,7 +21,7 @@
  * @property {number} [holdTimeout=5000] - ms of silence before holding state
  * @property {number} [correctionGain=1.5] - Proportional gain for position correction
  * @property {number} [maxCorrectionSpeed=200] - Maximum correction speed in px/sec
- * @property {number} [syncDeadband=15] - Position error (px) to ignore
+ * @property {number} [syncDeadband=3] - Position error (px) to ignore
  * @property {number} [correctionSmoothing=3] - Smoothing rate for correction speed (higher = faster response)
  * @property {number} [minPace=0.5] - minimum words/second
  * @property {number} [maxPace=10] - maximum words/second
@@ -60,7 +60,7 @@ export class ScrollController {
       holdTimeout = 5000,
       correctionGain = 1.5,
       maxCorrectionSpeed = 200,
-      syncDeadband = 15,
+      syncDeadband = 3,
       correctionSmoothing = 3,
       minPace = 0.5,
       maxPace = 10,
@@ -136,6 +136,9 @@ export class ScrollController {
 
     /** @type {number} Timestamp of last position advance */
     this.lastAdvanceTime = 0;
+
+    /** @type {number} Smoothed display position for interpolation (avoids staircase jumps) */
+    this.displayPosition = 0;
 
     // Bind methods for animation callback
     this.tick = this.tick.bind(this);
@@ -304,8 +307,23 @@ export class ScrollController {
       this.onStateChange('holding');
     }
 
-    // Calculate expected scroll position for confirmed word
-    const expectedScroll = this.positionToScrollTop(confirmedPosition);
+    // Smoothly interpolate display position toward confirmed position
+    // This spreads bursty word-match updates into steady forward motion
+    if (confirmedPosition > this.displayPosition) {
+      const remaining = confirmedPosition - this.displayPosition;
+      // Linear advance at speaking pace (consistent baseline motion)
+      const paceAdvance = this.speakingPace * 1.5 * dt;
+      // Proportional catch-up for larger gaps (prevents accumulating lag)
+      const catchUpAdvance = remaining * 3 * dt;
+      // Use whichever is larger
+      const advance = Math.max(paceAdvance, catchUpAdvance);
+      this.displayPosition = Math.min(confirmedPosition, this.displayPosition + advance);
+    } else {
+      this.displayPosition = confirmedPosition;
+    }
+
+    // Calculate expected scroll position for interpolated display word
+    const expectedScroll = this.positionToScrollTop(this.displayPosition);
     const currentScroll = this.container.scrollTop;
     const maxScroll = this.container.scrollHeight - this.container.clientHeight;
 
@@ -371,6 +389,8 @@ export class ScrollController {
     const distance = newPosition - prevPosition;
     if (distance > 10) {
       this.isCatchingUp = true;
+      // Snap display position closer to avoid prolonged catch-up animation
+      this.displayPosition = Math.max(this.displayPosition, newPosition - 3);
     }
 
     // Resume tracking if holding
@@ -409,5 +429,6 @@ export class ScrollController {
     this.speakingPace = 2.5;
     this.isCatchingUp = false;
     this.smoothedCorrectionSpeed = 0;
+    this.displayPosition = 0;
   }
 }
