@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 10 of 11 (VoskRecognizer Adapter)
-Plan: 1 of 3
+Plan: 2 of 3
 Status: In progress
-Last activity: 2026-02-01 - Completed 10-01-PLAN.md (VoskRecognizer Interface Compatibility)
+Last activity: 2026-02-01 - Completed 10-02-PLAN.md (Audio Processing Pipeline)
 
-Progress: [█████████░] 86% (19/22 plans complete)
+Progress: [█████████░] 91% (20/22 plans complete)
 
 ## Performance Metrics
 
@@ -29,7 +29,7 @@ Progress: [█████████░] 86% (19/22 plans complete)
 |-------|-------|-------|----------|
 | v1.0 (1-4) | 13 | - | - |
 | v1.1 (5-8) | 8 | - | - |
-| v1.2 (9-11) | 4 of ~12 | ~13min | ~3.25min/plan |
+| v1.2 (9-11) | 5 of ~12 | ~13min | ~2.6min/plan |
 
 **Recent Trend:**
 - v1.0 and v1.1 shipped same day (2026-01-24)
@@ -64,6 +64,9 @@ Recent decisions affecting v1.2 work:
 - 10-01: Accept ScriptProcessorNode deprecation (AudioWorklet migration deferred to v2)
 - 10-01: 16kHz sample rate required for Vosk model compatibility
 - 10-01: Import jest from @jest/globals for ES module compatibility
+- 10-02: 4096 buffer size for ScriptProcessor balances latency with stability
+- 10-02: Model singleton pattern - recognizer.remove() called but model NOT terminated (reuse across sessions)
+- 10-02: pause/resume disconnect/reconnect audio graph (more efficient than Web Speech API stop/start)
 
 ### Pending Todos
 
@@ -87,9 +90,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 18:10 UTC
-Stopped at: Completed 10-01-PLAN.md (VoskRecognizer Interface Compatibility)
+Last session: 2026-02-01 18:14 UTC
+Stopped at: Completed 10-02-PLAN.md (Audio Processing Pipeline - delivered in 10-01)
 Resume file: None - ready to continue Phase 10
 
 ---
-*Updated: 2026-02-01 after 10-01 completion*
+*Updated: 2026-02-01 after 10-02 completion*
