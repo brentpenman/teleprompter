@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 11 of 11 (Engine Selection & Polish)
-Plan: 1 of 3
+Plan: 2 of 3
 Status: In progress
-Last activity: 2026-02-01 - Completed 11-01-PLAN.md (Settings Infrastructure)
+Last activity: 2026-02-01 - Completed 11-02-PLAN.md (Settings UI and Engine Selection)
 
-Progress: [█████████░] 96% (22/23 plans complete)
+Progress: [█████████░] 100% (23/23 plans complete)
 
 ## Performance Metrics
 
@@ -74,6 +74,11 @@ Recent decisions affecting v1.2 work:
 - 11-01: iOS always gets webspeech (SharedArrayBuffer blocked even with COOP/COEP)
 - 11-01: Android + Vosk prioritized to eliminate notification beep (PRIMARY v1.2 goal)
 - 11-01: Factory automatic fallback Vosk→WebSpeech (graceful degradation maximizes availability)
+- 11-02: LoadingStates as static methods (no state management needed)
+- 11-02: SettingsPanel creates fresh instance on each open (no stale state)
+- 11-02: Settings load on DOMContentLoaded for ENGINE-02 persistence requirement
+- 11-02: RecognizerFactory progress callback renders in listening indicator
+- 11-02: Vosk initialization errors show clear message then auto-clear after 3s
 
 ### Pending Todos
 
@@ -97,9 +102,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 18:57 UTC
-Stopped at: Completed 11-01-PLAN.md (Settings Infrastructure)
-Resume file: None - Continue with 11-02 or 11-03
+Last session: 2026-02-01 19:06 UTC
+Stopped at: Completed 11-02-PLAN.md (Settings UI and Engine Selection)
+Resume file: None - Continue with 11-03 (Cross-platform Validation) or ship v1.2
 
 ---
-*Updated: 2026-02-01 after 11-01 completion*
+*Updated: 2026-02-01 after 11-02 completion*
