@@ -227,9 +227,11 @@ export class ScrollController {
     const wordPositionInContent = wordPercent * contentHeight;
     const wordPositionInDoc = paddingTop + wordPositionInContent;
 
-    // Offset to position at caret
+    // Offset to position at caret, adjusted up by one line height
     const caretOffset = (this.caretPercent / 100) * containerHeight;
-    const targetScroll = wordPositionInDoc - caretOffset;
+    const textEl = this.container.firstElementChild;
+    const lineHeight = textEl ? parseFloat(getComputedStyle(textEl).lineHeight) || 0 : 0;
+    const targetScroll = wordPositionInDoc - caretOffset + lineHeight;
 
     // Clamp to valid range
     return Math.max(0, Math.min(maxScroll, targetScroll));
