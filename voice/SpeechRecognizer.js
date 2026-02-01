@@ -9,11 +9,14 @@
  */
 
 // Browser support check at module load time
-const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+// Handle Node environment (for tests)
+const global = typeof window !== 'undefined' ? window : {};
+const SpeechRecognitionAPI = global.SpeechRecognition || global.webkitSpeechRecognition;
 
 // Mobile platform detection
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const isAndroid = /Android/.test(navigator.userAgent);
+const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+const isAndroid = /Android/.test(userAgent);
 const isMobile = isIOS || isAndroid;
 
 /**
