@@ -72,7 +72,7 @@ class DeviceCapability {
         deviceMemory,
         deviceTier
       },
-      // Vosk requires SharedArrayBuffer (iOS Safari blocks this even with COOP/COEP headers)
+      // Vosk requires SharedArrayBuffer + cross-origin isolation
       voskSupported: hasSharedArrayBuffer,
       webSpeechSupported: hasWebSpeechAPI
     };
@@ -85,22 +85,12 @@ class DeviceCapability {
   static recommendEngine() {
     const { platform, capabilities, voskSupported, webSpeechSupported } = DeviceCapability.detect();
 
-    // iOS: Vosk not supported (SharedArrayBuffer unavailable on iOS Safari)
-    if (platform.isIOS) {
-      return {
-        engine: 'webspeech',
-        reason: 'iOS Safari does not support Vosk (SharedArrayBuffer unavailable)',
-        shouldDownloadModel: false
-      };
-    }
-
-    // Android: Prefer Vosk to avoid notification beep (PRIMARY GOAL of v1.2)
-    // Web Speech API triggers Android microphone notification beep
-    // Vosk offline processing should avoid this
-    if (platform.isAndroid && voskSupported) {
+    // Mobile (iOS + Android): Always use Vosk for local recognition
+    // Web Speech API causes disruptive audio notifications on Android during silence/restart
+    if (platform.isMobile) {
       return {
         engine: 'vosk',
-        reason: 'Android device with Vosk support - offline recognition avoids notification beep',
+        reason: 'Mobile device - Vosk required for local offline recognition',
         shouldDownloadModel: true
       };
     }
@@ -123,11 +113,10 @@ class DeviceCapability {
       };
     }
 
-    // Fallback: Web Speech API
+    // Fallback: Web Speech API (desktop only)
     // Handles:
-    // - Android without SharedArrayBuffer
     // - Desktop without SharedArrayBuffer
-    // - Any other edge cases
+    // - Any other desktop edge cases
     return {
       engine: 'webspeech',
       reason: 'Vosk not supported - using Web Speech API',

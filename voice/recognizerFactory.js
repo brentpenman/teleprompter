@@ -61,8 +61,14 @@ class RecognizerFactory {
 
     // Attempt to create target engine
     if (targetEngine === 'vosk') {
+      const { platform } = DeviceCapability.detect();
+
       // Check Vosk support before attempting
       if (!VoskRecognizer.isSupported()) {
+        if (platform.isMobile) {
+          // On mobile, do not fall back to Web Speech API
+          throw new Error('Vosk is required on mobile but SharedArrayBuffer is unavailable. Ensure the page is served with cross-origin isolation headers.');
+        }
         console.warn('Vosk not supported (SharedArrayBuffer unavailable), falling back to Web Speech API');
         return RecognizerFactory._createWebSpeech(callbacks, 'Vosk not supported (SharedArrayBuffer unavailable)');
       }
@@ -93,7 +99,11 @@ class RecognizerFactory {
           fallbackReason: null
         };
       } catch (error) {
-        // Vosk initialization failed, fall back to Web Speech API
+        if (platform.isMobile) {
+          // On mobile, do not fall back to Web Speech API
+          throw new Error(`Vosk initialization failed on mobile: ${error.message}`);
+        }
+        // Desktop: fall back to Web Speech API
         console.error('Vosk initialization failed:', error);
         console.warn('Falling back to Web Speech API');
         return RecognizerFactory._createWebSpeech(callbacks, `Vosk failed: ${error.message}`);

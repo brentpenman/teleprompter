@@ -30,7 +30,7 @@ export class ModelDownloader {
 
     let response;
     try {
-      response = await fetch(url);
+      response = await fetch(url, { mode: 'cors', credentials: 'omit' });
     } catch (error) {
       throw new Error(`Network error downloading from ${url}: ${error.message}`);
     }

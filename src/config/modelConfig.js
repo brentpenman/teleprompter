@@ -13,9 +13,9 @@ export const modelConfig = {
   language: 'en-US',
 
   // Download configuration
-  // Direct URL (alphacephei.com has CORS enabled)
-  // For local dev with server: use '/api/model-proxy?url=' + encodeURIComponent(directUrl)
-  url: 'https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip',
+  // Hugging Face mirror — reliable CDN with proper CORS headers
+  // Original: https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip (unreliable, no CORS)
+  url: 'https://huggingface.co/localstack/vosk-models/resolve/main/vosk-model-small-en-us-0.15.zip',
   size: 40 * 1024 * 1024,  // ~40MB (approximate)
 
   // Integrity validation
