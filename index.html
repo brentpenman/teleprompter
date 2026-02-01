@@ -34,12 +34,18 @@
         <div id="teleprompter-container">
             <div id="teleprompter-text"></div>
         </div>
+        <div id="model-loading-bar" class="model-loading-bar hidden">
+            <div id="model-loading-fill" class="model-loading-fill"></div>
+            <span id="model-loading-text" class="model-loading-text">Loading model...</span>
+        </div>
         <div class="reading-marker"></div>
 
         <!-- Visual feedback elements for voice tracking -->
         <div id="caret-line" class="caret-line"></div>
-        <div id="tracking-indicator" class="tracking-indicator stopped">Stopped</div>
-        <div id="engine-indicator" class="engine-indicator hidden"></div>
+        <div id="tracking-indicator" class="tracking-indicator stopped">
+            <span id="tracking-label">Stopped</span>
+            <span id="engine-sublabel" class="engine-sublabel hidden"></span>
+        </div>
         <div class="controls-overlay">
             <div class="controls-row">
                 <button id="exit-btn" class="control-btn">Exit</button>
