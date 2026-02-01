@@ -1,63 +1,85 @@
-# Requirements: AI Voice-Controlled Teleprompter v1.1
+# Requirements: AI Voice-Controlled Teleprompter v1.2
 
-**Defined:** 2026-01-24
+**Defined:** 2026-02-01
 **Core Value:** The teleprompter follows YOU, not the other way around.
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-Requirements for the position-tracking rewrite. Each maps to roadmap phases.
+Requirements for Vosk offline speech recognition integration. Each maps to roadmap phases.
 
-### Matching Algorithm
+### Model Management
 
-- [x] **MATCH-01**: App uses distance-weighted scoring where position is intrinsic to match confidence
-- [x] **MATCH-02**: App searches within a constrained radius around current position (not entire script)
-- [x] **MATCH-03**: App requires consecutive word matches before updating confirmed position
-- [x] **MATCH-04**: App handles repeated phrases by preferring matches near current position
+- [ ] **MODEL-01**: App downloads Vosk model (40MB) with visible progress indicator
+- [ ] **MODEL-02**: App caches downloaded model in IndexedDB for offline use
+- [ ] **MODEL-03**: App validates model integrity using SHA-256 hash before caching
+- [ ] **MODEL-04**: App checks available storage quota before downloading model
+- [ ] **MODEL-05**: App loads cached model instantly on subsequent visits (<2s)
+- [ ] **MODEL-06**: App provides clear error messages when model download fails
+- [ ] **MODEL-07**: App handles quota exceeded errors with user-actionable guidance
+- [ ] **MODEL-08**: App allows user to clear cached model to free storage
 
-### Position Tracking
+### VoskRecognizer Implementation
 
-- [x] **POS-01**: App maintains confirmed position as single source of truth (never speculative)
-- [x] **POS-02**: App implements two-position model (confirmed floor + candidate ceiling)
-- [x] **POS-03**: App only updates confirmed position on high-confidence matches
-- [x] **POS-04**: Confirmed position only moves forward (monotonic constraint)
+- [ ] **VOSK-01**: VoskRecognizer class implements same interface as SpeechRecognizer (start, stop, pause, resume methods)
+- [ ] **VOSK-02**: VoskRecognizer emits same events as SpeechRecognizer (onTranscript, onError, onStateChange)
+- [ ] **VOSK-03**: VoskRecognizer provides continuous recognition without manual restarts
+- [ ] **VOSK-04**: VoskRecognizer emits interim results during speech (isFinal: false)
+- [ ] **VOSK-05**: VoskRecognizer emits final results when utterance complete (isFinal: true)
+- [ ] **VOSK-06**: VoskRecognizer captures audio via getUserMedia API
+- [ ] **VOSK-07**: VoskRecognizer properly cleans up resources on stop (.free() for WASM)
+- [ ] **VOSK-08**: VoskRecognizer handles microphone permission errors gracefully
+- [ ] **VOSK-09**: VoskRecognizer achieves <500ms latency from speech to transcript
+- [ ] **VOSK-10**: VoskRecognizer maintains stable memory usage over 60+ minutes
 
-### Scroll Behavior
+### Engine Selection & UI
 
-- [x] **SCROLL-01**: App never scrolls ahead of confirmed position boundary
-- [x] **SCROLL-02**: App keeps next words to speak at fixed cue position (near caret)
-- [x] **SCROLL-03**: App pauses and holds position on silence
-- [x] **SCROLL-04**: App resumes tracking automatically when speech detected (no manual restart)
-- [x] **SCROLL-05**: App derives scroll speed from observed speaking pace (not a separate parameter)
+- [ ] **ENGINE-01**: User can select recognition engine (Vosk or Web Speech API)
+- [ ] **ENGINE-02**: App persists engine preference in localStorage
+- [ ] **ENGINE-03**: App detects device capability and recommends appropriate engine
+- [ ] **ENGINE-04**: App shows model download progress UI (percentage, MB downloaded)
+- [ ] **ENGINE-05**: App displays clear loading states (downloading, loading model, ready)
+- [ ] **ENGINE-06**: App displays current engine in use (Vosk/Web Speech API indicator)
+- [ ] **ENGINE-07**: App provides "Download for offline use" button in settings
+- [ ] **ENGINE-08**: App shows model cache size and last updated date
+- [ ] **ENGINE-09**: App provides clear error UI when Vosk fails to initialize
 
-### Skip Detection
+### Integration & Compatibility
 
-- [x] **SKIP-01**: App requires consecutive word matches at new position before accepting large jumps
-- [x] **SKIP-02**: App has strong forward bias (backward jumps require much stronger evidence or manual action)
+- [ ] **INTEG-01**: Existing components work unchanged with VoskRecognizer (WordMatcher, PositionTracker, ScrollController)
+- [ ] **INTEG-02**: AudioVisualizer works with both Vosk and Web Speech API
+- [ ] **INTEG-03**: App falls back to Web Speech API when Vosk unavailable
+- [ ] **INTEG-04**: App falls back to Web Speech API when Vosk initialization fails
+- [ ] **INTEG-05**: Switching between engines preserves app state (script content, position)
+- [ ] **INTEG-06**: App configures COOP/COEP headers for SharedArrayBuffer support
+- [ ] **INTEG-07**: App serves over HTTPS in production (required for COOP/COEP)
 
-### Architecture
+### Cross-Platform Validation
 
-- [x] **ARCH-01**: WordMatcher is stateless (pure function for matching)
-- [x] **ARCH-02**: PositionTracker owns confirmed position as single source of truth
-- [x] **ARCH-03**: ScrollController is purely reactive to PositionTracker events
-- [ ] **ARCH-04**: Old components removed (TextMatcher, ScrollSync, ConfidenceLevel)
-
-### Visual Feedback
-
-- [x] **VIS-01**: App shows visual indication of tracking state (tracking vs. holding)
+- [ ] **VALID-01**: Voice mode works on Android Chrome without notification beep (primary goal)
+- [ ] **VALID-02**: Voice mode works offline on Android after model download
+- [ ] **VALID-03**: Voice mode works on iOS Safari (with appropriate engine)
+- [ ] **VALID-04**: Voice mode works on Desktop Chrome/Firefox/Safari
+- [ ] **VALID-05**: Recognition accuracy acceptable for teleprompter use (subjective, >80% WER)
+- [ ] **VALID-06**: Model download completes on 4G connection within 60 seconds
+- [ ] **VALID-07**: App performs well on constrained devices (Pixel 3a, iPhone SE)
 
 ## Future Requirements
 
 Deferred to later milestones. Not in current roadmap.
 
-### Enhanced Feedback
+### Enhanced Features
 
-- **VIS-02**: App shows word-level visual feedback (underline matched words in real-time)
-- **VIS-03**: App shows confidence visualization (subtle indicator of match quality)
+- **VOSK-11**: Support for multiple model sizes (small/medium/large)
+- **VOSK-12**: Support for multiple languages (Spanish, French, etc.)
+- **VOSK-13**: AudioWorklet migration (replace deprecated ScriptProcessor)
+- **MODEL-09**: Model versioning with automatic updates
+- **MODEL-10**: Custom vocabulary support for technical terms
 
-### Manual Override
+### Advanced UI
 
-- **MANUAL-01**: User can tap/scroll to manually adjust position without breaking tracking
-- **MANUAL-02**: User can trigger explicit backward navigation
+- **ENGINE-10**: Device-tier detection with automatic model selection
+- **ENGINE-11**: Network-aware download (prompt on cellular, auto on WiFi)
+- **ENGINE-12**: Background model download via Service Worker
 
 ## Out of Scope
 
@@ -65,11 +87,14 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Backward automatic jumps | Too error-prone; forward-only with manual override later |
-| Multiple confidence levels | v1.0 over-engineering; simple confirmed/unconfirmed is enough |
-| Tunable threshold parameters | Derive from observed behavior; avoid parameter explosion |
-| State machine transitions | Simpler reactive model; no CONFIDENT/UNCERTAIN/OFF_SCRIPT |
-| Predictive scrolling | Confirmation-only; never scroll ahead of user |
+| Cloud STT APIs (Deepgram, AssemblyAI) | Costs money, privacy concerns; defeats offline goal |
+| Real-time model updates | Large downloads defeat offline purpose |
+| Multiple simultaneous models | Memory explosion, browser crashes |
+| Background model download | Service Worker complexity, unclear when ready |
+| Auto-download large models | 2.3GB kills mobile data plans |
+| Custom model training | High complexity, unclear value for teleprompter |
+| Speaker diarization | Single speaker only; not needed for use case |
+| Punctuation/formatting | Basic transcription sufficient; fuzzy matching handles it |
 
 ## Traceability
 
@@ -77,32 +102,53 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MATCH-01 | Phase 5 | Complete |
-| MATCH-02 | Phase 5 | Complete |
-| MATCH-03 | Phase 5 | Complete |
-| MATCH-04 | Phase 5 | Complete |
-| POS-01 | Phase 6 | Complete |
-| POS-02 | Phase 6 | Complete |
-| POS-03 | Phase 6 | Complete |
-| POS-04 | Phase 6 | Complete |
-| SCROLL-01 | Phase 7 | Complete |
-| SCROLL-02 | Phase 7 | Complete |
-| SCROLL-03 | Phase 7 | Complete |
-| SCROLL-04 | Phase 7 | Complete |
-| SCROLL-05 | Phase 7 | Complete |
-| SKIP-01 | Phase 6 | Complete |
-| SKIP-02 | Phase 6 | Complete |
-| ARCH-01 | Phase 5 | Complete |
-| ARCH-02 | Phase 6 | Complete |
-| ARCH-03 | Phase 7 | Complete |
-| ARCH-04 | Phase 8 | Pending |
-| VIS-01 | Phase 7 | Complete |
+| MODEL-01 | TBD | Pending |
+| MODEL-02 | TBD | Pending |
+| MODEL-03 | TBD | Pending |
+| MODEL-04 | TBD | Pending |
+| MODEL-05 | TBD | Pending |
+| MODEL-06 | TBD | Pending |
+| MODEL-07 | TBD | Pending |
+| MODEL-08 | TBD | Pending |
+| VOSK-01 | TBD | Pending |
+| VOSK-02 | TBD | Pending |
+| VOSK-03 | TBD | Pending |
+| VOSK-04 | TBD | Pending |
+| VOSK-05 | TBD | Pending |
+| VOSK-06 | TBD | Pending |
+| VOSK-07 | TBD | Pending |
+| VOSK-08 | TBD | Pending |
+| VOSK-09 | TBD | Pending |
+| VOSK-10 | TBD | Pending |
+| ENGINE-01 | TBD | Pending |
+| ENGINE-02 | TBD | Pending |
+| ENGINE-03 | TBD | Pending |
+| ENGINE-04 | TBD | Pending |
+| ENGINE-05 | TBD | Pending |
+| ENGINE-06 | TBD | Pending |
+| ENGINE-07 | TBD | Pending |
+| ENGINE-08 | TBD | Pending |
+| ENGINE-09 | TBD | Pending |
+| INTEG-01 | TBD | Pending |
+| INTEG-02 | TBD | Pending |
+| INTEG-03 | TBD | Pending |
+| INTEG-04 | TBD | Pending |
+| INTEG-05 | TBD | Pending |
+| INTEG-06 | TBD | Pending |
+| INTEG-07 | TBD | Pending |
+| VALID-01 | TBD | Pending |
+| VALID-02 | TBD | Pending |
+| VALID-03 | TBD | Pending |
+| VALID-04 | TBD | Pending |
+| VALID-05 | TBD | Pending |
+| VALID-06 | TBD | Pending |
+| VALID-07 | TBD | Pending |
 
 **Coverage:**
-- v1.1 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
+- v1.2 requirements: 40 total
+- Mapped to phases: 0 (will be mapped during roadmap creation)
+- Unmapped: 40
 
 ---
-*Requirements defined: 2026-01-24*
-*Last updated: 2026-01-24 after roadmap creation*
+*Requirements defined: 2026-02-01*
+*Last updated: 2026-02-01 after initial definition*
