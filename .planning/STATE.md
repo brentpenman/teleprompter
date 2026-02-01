@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 9 of 11 (Model Loading Infrastructure)
-Plan: 2 of 4
+Plan: 1 of 4
 Status: In progress
-Last activity: 2026-02-01 - Completed 09-02-PLAN.md (Storage Infrastructure)
+Last activity: 2026-02-01 - Completed 09-01-PLAN.md (Server Cross-Origin Isolation)
 
 Progress: [████████░░] 77% (17/22 plans complete)
 
@@ -49,6 +49,9 @@ Recent decisions affecting v1.2 work:
 - v1.0: Web Speech API used but flagged for potential issues
 - v1.1: Complete rewrite of following logic with goal-backward principles
 - v1.2: Vosk offline recognition to eliminate Android beep and enable offline operation
+- 09-01: Use require-corp instead of credentialless for COEP header (Safari compatibility)
+- 09-01: Apply COOP/COEP headers to ALL responses including 404 errors
+- 09-01: Verify SharedArrayBuffer via try-catch instantiation, not just property check
 - 09-02: Native IndexedDB without wrapper library (sufficient for binary storage use case)
 - 09-02: Do NOT index binary data field (40MB) to avoid performance degradation
 - 09-02: 10% safety buffer for storage quota checks (compression imprecision)
@@ -76,9 +79,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 17:34 UTC
-Stopped at: Completed 09-02-PLAN.md (Storage Infrastructure)
+Last session: 2026-02-01 17:36 UTC
+Stopped at: Completed 09-01-PLAN.md (Server Cross-Origin Isolation)
 Resume file: None - ready to continue Phase 9
 
 ---
-*Updated: 2026-02-01 after 09-02 completion*
+*Updated: 2026-02-01 after 09-01 completion*
