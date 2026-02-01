@@ -27,7 +27,7 @@ class SettingsManager {
       recognitionEngine: 'auto',  // 'auto' | 'vosk' | 'webspeech'
       fontSize: 48,
       scrollSpeed: 50,
-      highlightEnabled: true,
+      highlightEnabled: false,
       mirrorEnabled: false
     };
   }

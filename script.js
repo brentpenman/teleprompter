@@ -37,7 +37,7 @@ const { state, subscribe } = createState({
   isScrolling: false,
   voiceEnabled: false,      // Voice mode on/off
   voiceState: 'idle',       // 'idle' | 'listening' | 'error' | 'retrying'
-  highlightEnabled: true,   // Show text highlighting
+  highlightEnabled: false,  // Show text highlighting
   mirrorEnabled: false      // Mirror text for beam-splitter setups
 });
 
@@ -883,7 +883,7 @@ function loadSettings() {
       const settings = JSON.parse(saved);
       state.scrollSpeed = settings.scrollSpeed ?? 50;
       state.fontSize = settings.fontSize ?? 48;
-      state.highlightEnabled = settings.highlightEnabled ?? true;
+      state.highlightEnabled = settings.highlightEnabled ?? false;
       state.mirrorEnabled = settings.mirrorEnabled ?? false;
       // Note: voiceEnabled is NOT restored to state here
       // It's restored when entering teleprompter mode via switchMode
