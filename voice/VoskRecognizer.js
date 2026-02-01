@@ -282,6 +282,22 @@ class VoskRecognizer {
   isPaused() {
     return this._isPaused;
   }
+
+  /**
+   * Get the AudioContext for audio visualization
+   * @returns {AudioContext|null} The AudioContext if listening, null otherwise
+   */
+  getAudioContext() {
+    return this._audioContext;
+  }
+
+  /**
+   * Get the MediaStreamSource for audio visualization
+   * @returns {MediaStreamAudioSourceNode|null} The source if listening, null otherwise
+   */
+  getMediaStreamSource() {
+    return this._source;
+  }
 }
 
 export default VoskRecognizer;
