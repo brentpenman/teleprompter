@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Test results
+test-results/
+playwright-report/
+*.log
+
+# Local development
+localhost-cert.pem
+localhost-key.pem
+.env
+.env.local
+
+# IDE
+.claude/
+.vscode/
+.idea/
+
+# Personal notes
+notes.md
+transcript.txt
+
+# OS
+.DS_Store
+Thumbs.db

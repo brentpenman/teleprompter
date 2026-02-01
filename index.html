@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Teleprompter</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Enable cross-origin isolation for SharedArrayBuffer (required for Vosk on GitHub Pages) -->
+    <script src="coi-serviceworker.js"></script>
     <script type="importmap">
     {
         "imports": {
@@ -13,7 +15,7 @@
     }
     </script>
     <!-- Load vosk-browser as global (UMD bundle doesn't work as ES module) -->
-    <script src="./node_modules/vosk-browser/dist/vosk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js"></script>
     <script type="module" src="script.js"></script>
 </head>
 <body>
