@@ -206,8 +206,15 @@ class VoskRecognizer {
       // Buffer size 4096 provides good balance for <500ms latency
       this._processor = this._audioContext.createScriptProcessor(4096, 1, 1);
 
+      let audioFrameCount = 0;
       this._processor.onaudioprocess = (event) => {
         try {
+          // Debug: Log first few audio frames to verify audio is flowing
+          if (audioFrameCount < 5) {
+            console.log('[Vosk] Audio frame received:', audioFrameCount);
+            audioFrameCount++;
+          }
+
           this._recognizer.acceptWaveform(event.inputBuffer);
         } catch (err) {
           console.error('Vosk processing error:', err);
@@ -215,9 +222,10 @@ class VoskRecognizer {
         }
       };
 
-      // Connect pipeline: microphone -> processor -> (vosk in worker)
-      // Do NOT connect to destination (avoid audio feedback)
+      // Connect pipeline: microphone -> processor -> destination (CRITICAL!)
+      // ScriptProcessor requires destination connection to fire onaudioprocess
       this._source.connect(this._processor);
+      this._processor.connect(this._audioContext.destination);
 
       // Notify state change
       this._options.onStateChange?.('listening');
