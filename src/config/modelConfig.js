@@ -13,8 +13,9 @@ export const modelConfig = {
   language: 'en-US',
 
   // Download configuration
-  // Use proxy endpoint to avoid CORS issues
-  url: '/api/model-proxy?url=' + encodeURIComponent('https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip'),
+  // Direct URL (alphacephei.com has CORS enabled)
+  // For local dev with server: use '/api/model-proxy?url=' + encodeURIComponent(directUrl)
+  url: 'https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip',
   size: 40 * 1024 * 1024,  // ~40MB (approximate)
 
   // Integrity validation
