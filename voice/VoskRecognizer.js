@@ -183,6 +183,7 @@ class VoskRecognizer {
       // 4. Set up event listeners for transcription
       this._recognizer.on('result', (message) => {
         const text = message.result.text;
+        console.log('[Vosk] Final result:', text);
         if (text && text.trim()) {
           this._options.onTranscript?.(text, true); // isFinal = true
         }
@@ -190,6 +191,7 @@ class VoskRecognizer {
 
       this._recognizer.on('partialresult', (message) => {
         const text = message.result.partial;
+        console.log('[Vosk] Partial result:', text);
         if (text && text.trim()) {
           this._options.onTranscript?.(text, false); // isFinal = false
         }
