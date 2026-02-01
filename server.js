@@ -2,6 +2,8 @@ import { createServer } from 'https';
 import { readFileSync, existsSync, statSync } from 'fs';
 import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
+import { get as httpsGet } from 'https';
+import { get as httpGet } from 'http';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -30,6 +32,28 @@ const server = createServer(options, (req, res) => {
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Embedder-Policy': 'require-corp',
   };
+
+  // Model download proxy to avoid CORS issues
+  if (req.url.startsWith('/api/model-proxy?url=')) {
+    const targetUrl = decodeURIComponent(req.url.split('url=')[1]);
+    console.log(`[Proxy] Fetching model from: ${targetUrl}`);
+
+    const httpLib = targetUrl.startsWith('https:') ? httpsGet : httpGet;
+    httpLib(targetUrl, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, {
+        'Content-Type': proxyRes.headers['content-type'] || 'application/octet-stream',
+        'Content-Length': proxyRes.headers['content-length'],
+        'Access-Control-Allow-Origin': '*',
+        ...crossOriginHeaders
+      });
+      proxyRes.pipe(res);
+    }).on('error', (err) => {
+      console.error('[Proxy] Error:', err);
+      res.writeHead(502, crossOriginHeaders);
+      res.end('Proxy error');
+    });
+    return;
+  }
 
   let filePath = join(__dirname, req.url === '/' ? 'index.html' : req.url);
 
