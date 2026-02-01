@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** The teleprompter follows YOU, not the other way around. It matches your natural speaking rhythm and handles the messiness of real speech.
-**Current focus:** Phase 9 - Model Loading Infrastructure
+**Current focus:** Phase 10 - VoskRecognizer Adapter
 
 ## Current Position
 
-Phase: 9 of 11 (Model Loading Infrastructure)
-Plan: 3 of 4
+Phase: 10 of 11 (VoskRecognizer Adapter)
+Plan: 1 of 3
 Status: In progress
-Last activity: 2026-02-01 - Completed 09-03-PLAN.md (Download Infrastructure)
+Last activity: 2026-02-01 - Completed 10-01-PLAN.md (VoskRecognizer Interface Compatibility)
 
-Progress: [████████░░] 82% (18/22 plans complete)
+Progress: [█████████░] 86% (19/22 plans complete)
 
 ## Performance Metrics
 
@@ -29,7 +29,7 @@ Progress: [████████░░] 82% (18/22 plans complete)
 |-------|-------|-------|----------|
 | v1.0 (1-4) | 13 | - | - |
 | v1.1 (5-8) | 8 | - | - |
-| v1.2 (9-11) | 3 of ~12 | ~9min | ~3min/plan |
+| v1.2 (9-11) | 4 of ~12 | ~13min | ~3.25min/plan |
 
 **Recent Trend:**
 - v1.0 and v1.1 shipped same day (2026-01-24)
@@ -60,6 +60,10 @@ Recent decisions affecting v1.2 work:
 - 09-03: Cap progress percentage at 100% (handles Content-Encoding compression)
 - 09-03: Web Crypto API for SHA-256 validation (no streaming, 40MB in memory acceptable)
 - 09-03: Array.from() hex conversion (Uint8Array.toHex() not yet available)
+- 10-01: vosk-browser despite unmaintained status (only browser-ready Vosk package)
+- 10-01: Accept ScriptProcessorNode deprecation (AudioWorklet migration deferred to v2)
+- 10-01: 16kHz sample rate required for Vosk model compatibility
+- 10-01: Import jest from @jest/globals for ES module compatibility
 
 ### Pending Todos
 
@@ -83,9 +87,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-01 17:37 UTC
-Stopped at: Completed 09-03-PLAN.md (Download Infrastructure)
-Resume file: None - ready to continue Phase 9
+Last session: 2026-02-01 18:10 UTC
+Stopped at: Completed 10-01-PLAN.md (VoskRecognizer Interface Compatibility)
+Resume file: None - ready to continue Phase 10
 
 ---
-*Updated: 2026-02-01 after 09-03 completion*
+*Updated: 2026-02-01 after 10-01 completion*
