@@ -14,19 +14,21 @@ The teleprompter follows YOU, not the other way around. It matches your natural 
 **Codebase:** 2,317 lines of JavaScript
 **Tech Stack:** Vanilla JS, Web Speech API, Fuse.js, CSS Custom Highlight API
 
-## Current Milestone: v1.1 Following-Along Rewrite
+## Current Milestone: v1.2 Offline Voice Recognition
 
-**Goal:** Completely rewrite the position-tracking and scroll logic to follow the user naturally.
+**Goal:** Replace Web Speech API with Vosk offline recognition to eliminate Android beep and enable fully offline operation.
 
 **Target features:**
-- Rewritten position-tracking algorithm with strong positional bias
-- Scroll speed derived from speech pace (not a separate parameter)
-- Confirmed-position model: never scroll ahead of where user actually is
-- Skip detection with consecutive-word confirmation before jumping
-- Graceful handling of repeated phrases using positional context
-- Off-script behavior: hold position, scroll back if display got ahead
+- Vosk WebAssembly integration for beep-free recognition on Android
+- VoskRecognizer class (drop-in replacement for SpeechRecognizer)
+- Model download and IndexedDB caching system (50MB English model)
+- AudioWorklet-based real-time audio processing
+- Recognition engine selection (Vosk vs Web Speech API)
+- Model download progress UI
+- Full offline capability after initial model download
+- Cross-platform validation (Android, iOS, Desktop)
 
-**Core principle:** The next words to speak are always at the caret. Scroll is purely reactive to confirmed speech.
+**Core principle:** Voice recognition should work silently and offline without relying on cloud services or triggering system notifications.
 
 ## Requirements
 
@@ -101,4 +103,4 @@ The v1.1 milestone will rewrite the entire following-along system from first pri
 | Rewrite following logic | v1.0 approach fundamentally flawed | — Pending |
 
 ---
-*Last updated: 2026-01-24 after v1.1 milestone start*
+*Last updated: 2026-02-01 after v1.2 milestone start*

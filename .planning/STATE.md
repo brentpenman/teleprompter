@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-24)
+See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** The teleprompter follows YOU, not the other way around.
-**Current focus:** v1.1 Following-Along Rewrite
+**Current focus:** v1.2 Offline Voice Recognition
 
 ## Current Position
 
-Phase: 8 - Integration (COMPLETE)
-Plan: 2 of 2 complete
-Status: Phase 8 complete - v1.1 Following-Along Rewrite milestone COMPLETE
-Last activity: 2026-01-24 - Completed 08-02-PLAN.md (Debug Overlay + E2E Verification)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for v1.2 Offline Voice Recognition
+Last activity: 2026-02-01 - Milestone v1.2 started
 
-Progress: [██████████] 100% (All v1.1 plans complete)
+Progress: [          ] 0% (Requirements definition in progress)
 
 ## Performance Metrics
 
@@ -131,24 +131,22 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: Completed 08-02-PLAN.md (Phase 8 COMPLETE)
-Resume file: .planning/phases/08-integration/08-02-SUMMARY.md
+Last session: 2026-02-01
+Stopped at: Starting v1.2 Offline Voice Recognition milestone
+Resume file: None yet (requirements definition phase)
 
 ### Next Steps
 
-**v1.1 Following-Along Rewrite milestone COMPLETE!**
+**v1.2 Offline Voice Recognition milestone started**
 
-All 8 phases complete:
-- [x] Phase 5: WordMatcher - Stateless matching with distance weighting
-- [x] Phase 6: PositionTracker - Two-position model with skip detection
-- [x] Phase 7: ScrollController - Reactive scroll with pace tracking
-- [x] Phase 8: Integration - Pipeline wired, old components removed, E2E verified
+Current stage: Defining requirements and creating roadmap
 
-Ready for:
-- Production use of v1.1 system
-- Future enhancements (parameter tuning UI, advanced features)
-- Performance optimization if needed
+Phases to be planned:
+- Phase 9: POC - Validate Vosk integration and performance
+- Phase 10: VoskRecognizer - Core implementation
+- Phase 11: Model Management - Download and caching
+- Phase 12: Integration & UI - Wire into app
+- Phase 13: Testing & Polish - Cross-platform validation
 
 ---
-*Updated: 2026-01-24 after 08-02-PLAN.md completion - v1.1 milestone COMPLETE*
+*Updated: 2026-02-01 after v1.2 milestone start*
