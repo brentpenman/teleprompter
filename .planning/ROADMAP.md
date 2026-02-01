@@ -145,11 +145,12 @@ Plans:
   5. Voice mode works offline on Android after model download (no network required)
   6. Voice mode works on iOS Safari and Desktop Chrome/Firefox/Safari with appropriate engine
   7. Recognition accuracy is acceptable for teleprompter use (subjective evaluation, >80% word error rate target)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
+- [ ] 11-01-PLAN.md — Settings infrastructure (SettingsManager, DeviceCapability, RecognizerFactory)
+- [ ] 11-02-PLAN.md — Settings UI and integration (SettingsPanel, LoadingStates, script.js updates)
+- [ ] 11-03-PLAN.md — Cross-platform validation (Android beep test, offline test, iOS/Desktop compatibility)
 
 ## Progress
 
@@ -168,7 +169,7 @@ Phases execute in numeric order: 9 -> 10 -> 11
 | 8. Integration | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 9. Model Loading | v1.2 | 4/4 | Complete | 2026-02-01 |
 | 10. VoskRecognizer | v1.2 | 3/3 | Complete | 2026-02-01 |
-| 11. Engine Selection | v1.2 | 0/TBD | Not started | - |
+| 11. Engine Selection | v1.2 | 0/3 | Not started | - |
 
 ---
 *Created: 2026-01-24 for v1.1 Following-Along Rewrite*
