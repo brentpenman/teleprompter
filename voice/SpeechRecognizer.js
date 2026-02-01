@@ -318,3 +318,5 @@ class SpeechRecognizer {
     return this._isPaused;
   }
 }
+
+export default SpeechRecognizer;
