@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 Phase: 11 of 11 (Engine Selection & Polish)
 Plan: 2 of 3
 Status: In progress
-Last activity: 2026-02-01 - Completed 11-02-PLAN.md (Settings UI and Engine Selection)
+Last activity: 2026-02-01 - Completed quick-002 (Expand Lookahead Search Area)
 
 Progress: [█████████░] 100% (23/23 plans complete)
 
@@ -89,6 +89,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 001 | Engine label inline and model loading indicator | 2026-02-01 | 3114770 | [001-engine-label-inline-and-model-loading-in](./quick/001-engine-label-inline-and-model-loading-in/) |
+| 002 | Expand lookahead search area for scroll recovery | 2026-02-01 | 6f96c06 | [002-expand-lookahead-search-area-for-scroll-](./quick/002-expand-lookahead-search-area-for-scroll-/) |
 
 ### Blockers/Concerns
 
