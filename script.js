@@ -400,8 +400,7 @@ function handleSpeechTranscript(text, isFinal) {
 
   // Find matches using stateless WordMatcher
   const result = findMatches(text, matcher, prevPosition, {
-    radius: 50,
-    minConsecutive: 2,
+    radius: 100,
     distanceWeight: 0.3
   });
 

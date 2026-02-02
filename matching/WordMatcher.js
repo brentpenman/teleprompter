@@ -50,8 +50,8 @@ import { tokenize, filterFillerWords } from './textUtils.js';
 
 /**
  * @typedef {Object} MatchOptions
- * @property {number} [radius=50] - Search radius around currentPosition (in words)
- * @property {number} [minConsecutive=2] - Minimum consecutive words required for match
+ * @property {number} [radius=100] - Search radius around currentPosition (in words)
+ * @property {number} [minConsecutive=1] - Minimum consecutive words required for match
  * @property {number} [windowSize=3] - Words to take from transcript end for matching
  * @property {number} [distanceWeight=0.3] - How much distance affects score (0-1)
  * @property {number} [threshold=0.3] - Fuse.js fuzzy threshold (0=exact, 1=loose)
@@ -133,8 +133,8 @@ export function createMatcher(scriptText, options = {}) {
  */
 export function findMatches(transcript, matcher, currentPosition, options = {}) {
   const {
-    radius = 50,
-    minConsecutive = 2,
+    radius = 100,
+    minConsecutive = 1,
     windowSize = 3,
     distanceWeight = 0.3,
     threshold = 0.3

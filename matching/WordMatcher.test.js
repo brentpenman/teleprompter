@@ -71,12 +71,23 @@ describe('WordMatcher', () => {
     });
 
     // Test 4: Minimum consecutive words required
-    it('returns null when fewer than minConsecutive words match', () => {
+    it('returns match for single word with default minConsecutive=1', () => {
       const script = 'the quick brown fox';
       const matcher = createMatcher(script);
 
-      // Single word "brown" - below minConsecutive default of 2
+      // Single word "brown" - meets default minConsecutive of 1
       const result = findMatches('brown', matcher, 0);
+
+      expect(result.bestMatch).not.toBeNull();
+      expect(result.bestMatch.position).toBe(2); // "brown" is at index 2
+    });
+
+    it('returns null when fewer than explicit minConsecutive words match', () => {
+      const script = 'the quick brown fox';
+      const matcher = createMatcher(script);
+
+      // Single word "brown" - below explicit minConsecutive of 2
+      const result = findMatches('brown', matcher, 0, { minConsecutive: 2 });
 
       expect(result.bestMatch).toBeNull();
     });
